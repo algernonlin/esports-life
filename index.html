@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<title>PRO LEAGUE — 電競人生模擬器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="scanline"></div>
+
+<!-- ============ SCREEN 1：開局設定 ============ -->
+<section id="screen-setup" class="screen active">
+  <div class="frame">
+    <header class="masthead">
+      <span class="eyebrow">S16 CAREER SIM</span>
+      <h1>電競人生模擬器</h1>
+      <p class="sub">上路到輔助，選秀到世界賽——你的每一個決定都算數。</p>
+    </header>
+
+    <div class="panel">
+      <label class="field-label">選手名稱</label>
+      <input id="player-name" class="text-input" type="text" placeholder="輸入你的選手 ID" maxlength="12" />
+
+      <label class="field-label">位置</label>
+      <div id="position-select" class="chip-row"></div>
+
+      <label class="field-label">起始賽區</label>
+      <div id="region-select" class="chip-row"></div>
+
+      <div class="seed-row">
+        <input id="seed-input" class="text-input mono" type="text" placeholder="輸入朋友的種子碼（選填）" />
+        <button id="btn-load-seed" class="btn-ghost">載入種子</button>
+      </div>
+
+      <button id="btn-roll" class="btn-primary btn-block">擲骰開局 ▸</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCREEN 2：擲骰結果 ============ -->
+<section id="screen-roll" class="screen">
+  <div class="frame">
+    <header class="masthead">
+      <span class="eyebrow">SCOUTING REPORT</span>
+      <h1 id="roll-name">—</h1>
+      <p class="sub" id="roll-pos-region">—</p>
+    </header>
+
+    <div class="panel">
+      <div class="seed-tag">世界種子 <span class="mono" id="seed-display">—</span></div>
+
+      <h2 class="section-title">能力值</h2>
+      <div id="stat-bars" class="stat-list"></div>
+
+      <h2 class="section-title">性格</h2>
+      <div id="personality-bars" class="trait-list"></div>
+
+      <h2 class="section-title">先天天賦</h2>
+      <div id="talent-list" class="talent-list"></div>
+
+      <div class="btn-row">
+        <button id="btn-reroll" class="btn-ghost">重新擲骰</button>
+        <button id="btn-confirm-roll" class="btn-primary">確定開局 ▸</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCREEN 3：隊伍邀請 ============ -->
+<section id="screen-invite" class="screen">
+  <div class="frame">
+    <header class="masthead">
+      <span class="eyebrow">TEAM INVITATIONS</span>
+      <h1>選秀結果</h1>
+      <p class="sub">依你的綜合實力，各隊評估是否發出邀請。</p>
+    </header>
+
+    <div class="panel">
+      <div id="invitation-list" class="invite-list"></div>
+      <div id="no-invite-hint" class="hint-box" style="display:none;">
+        目前沒有隊伍發出邀請，你可以先加入最弱的隊伍從板凳做起。
+        <button class="btn-ghost">加入替補</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCREEN 4：生涯主畫面 ============ -->
+<section id="screen-dashboard" class="screen">
+  <div class="dash-grid">
+    <aside class="rail">
+      <div class="rail-id">
+        <span class="eyebrow">PLAYER</span>
+        <h2 id="dash-name">—</h2>
+        <p id="dash-info" class="mono small">—</p>
+        <span id="dash-roster" class="badge">—</span>
+      </div>
+
+      <div class="rail-block">
+        <h3 class="section-title small">能力值</h3>
+        <div id="dash-stats" class="stat-list"></div>
+      </div>
+
+      <div class="rail-block">
+        <h3 class="section-title small">狀態</h3>
+        <div id="dash-dynamic" class="stat-list"></div>
+      </div>
+
+      <div class="rail-block">
+        <h3 class="section-title small">傷病</h3>
+        <div id="dash-injuries" class="injury-list"></div>
+      </div>
+    </aside>
+
+    <main class="dash-main">
+      <div class="ticker">
+        <span id="dash-stage" class="ticker-stage">—</span>
+        <span id="dash-meta" class="ticker-meta mono">—</span>
+      </div>
+
+      <div class="panel-row">
+        <div class="panel small-panel">
+          <h3 class="section-title small">隊伍</h3>
+          <div id="dash-team" class="team-stat-list"></div>
+        </div>
+        <div class="panel small-panel">
+          <h3 class="section-title small">生涯數據</h3>
+          <div class="mono">知名度 <span id="dash-fame">—</span></div>
+          <div class="mono" id="dash-counters">—</div>
+        </div>
+      </div>
+
+      <button id="btn-advance" class="btn-primary btn-block btn-advance">推進至下一階段 ▸</button>
+
+      <div class="panel">
+        <h3 class="section-title small">生涯紀錄</h3>
+        <div id="event-log" class="log-list"></div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ============ SCREEN 5：生涯總評 ============ -->
+<section id="screen-summary" class="screen">
+  <div class="frame">
+    <header class="masthead">
+      <span class="eyebrow">CAREER RETROSPECTIVE</span>
+      <h1 id="summary-name">—</h1>
+      <p class="sub accent-text" id="summary-title">—</p>
+    </header>
+    <div class="panel">
+      <div id="summary-stats" class="summary-stats mono"></div>
+      <button id="btn-restart" class="btn-primary btn-block">開始新生涯</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 事件彈窗 ============ -->
+<div id="event-modal" class="modal">
+  <div class="modal-box">
+    <span class="eyebrow">EVENT</span>
+    <h2 id="event-title">—</h2>
+    <p id="event-text">—</p>
+    <div id="dice-area" class="dice-area"></div>
+    <div id="event-choices" class="btn-col"></div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
