@@ -4,6 +4,7 @@
 // ============================================================
 import { META_VERSIONS, POSITION_SPECIALTY } from "./state.js";
 import { clamp, randomRange } from "./rng.js";
+import { pickMatchChampionFit } from "./champions.js";
 
 function sigmoid(x) {
   return 1 / (1 + Math.exp(-x));
@@ -16,7 +17,7 @@ export function personalPerformance(character, { isMajorEvent = false } = {}) {
   const specialtyVal = s[specialty] ?? 50;
   const metaFit = character.seasonRecord.currentMeta ? 1 : 0.85; // 版本剛切換可再細調
 
-  let base =
+  let baseAbility =
     s["反應"] * 0.3 +
     s["意識"] * 0.25 +
     specialtyVal * 0.2 +
@@ -26,15 +27,27 @@ export function personalPerformance(character, { isMajorEvent = false } = {}) {
   // 心態、傷病 debuff
   const moodMod = 1 + (character.dynamic.心態 - 50) / 200;
   const injuryPenalty = character.injuries.reduce((acc, inj) => acc + (inj.affectedStats?.[specialty] ? 0.03 * inj.severity : 0), 0);
+  baseAbility = baseAbility * moodMod * (1 - injuryPenalty);
 
-  base = base * moodMod * (1 - injuryPenalty);
-  return clamp(base, 1, 99);
+  // 英雄適配層：能力值85% + 英雄熟練度/版本英雄加成15%，下限0.4不會讓玩家卡死
+  const { fit } = pickMatchChampionFit(character, character.meta.position, character.seasonRecord.currentMeta);
+  const perf = baseAbility * 0.85 + baseAbility * fit * 0.15;
+
+  return clamp(perf, 1, 99);
 }
 
 export function teamMatchValue(character, positionWeights, { isMajorEvent = false } = {}) {
-  const myWeight = positionWeights[character.meta.position] ?? 0.2;
+  const myPos = character.meta.position;
+  const myWeight = positionWeights[myPos] ?? 0.2;
   const myPerf = personalPerformance(character, { isMajorEvent });
-  const teammatesPerf = character.team.baseStrength;
+
+  // 其餘四路：改用隊伍「各路能力值」加權平均，而不是單一 baseStrength
+  const otherPositions = Object.keys(positionWeights).filter((p) => p !== myPos);
+  const otherWeightTotal = otherPositions.reduce((s, p) => s + positionWeights[p], 0) || 1;
+  const teammatesPerf = otherPositions.reduce(
+    (sum, p) => sum + (character.team.positionStrength?.[p] ?? character.team.baseStrength) * (positionWeights[p] / otherWeightTotal),
+    0
+  );
 
   const chemistryMod = 1 + (character.team.chemistry - 50) / 250;
   const leadershipMod = 1 + (character.stats["領導"] - 50) / 400 + (character.stats["溝通"] - 50) / 500;

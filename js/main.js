@@ -2,7 +2,7 @@
 // main.js — UI 綁定與遊戲主迴圈
 // ============================================================
 import {
-  POSITIONS, REGIONS, TEAMS, STAT_KEYS, PERSONALITY_TRAITS,
+  POSITIONS, REGIONS, TEAMS, STAT_KEYS, PERSONALITY_TRAITS, POSITION_SPECIALTY,
   createCharacter, SEASON_FLOW,
 } from "./state.js";
 import { makeSeedRng, randomSeedString, runtimeRng, clamp } from "./rng.js";
@@ -14,9 +14,11 @@ import { faceChar } from "./dice.js";
 import {
   advanceStage, simulateRegularStage, simulatePlayoff, checkQualification,
   rollMetaVersion, applyAgeDecay, evaluateRosterStatus,
+  evaluateInvitations, grantTrainingPoints, tickChampionDecay, pickTradeDestination,
 } from "./season.js";
 import { checkMilestones } from "./achievements.js";
 import { rollInjuryChance, tickInjuries } from "./injuries.js";
+import { CHAMPIONS, getChampion, trainChampion, effectiveProficiency } from "./champions.js";
 
 const el = (id) => document.getElementById(id);
 let character = null;
@@ -94,45 +96,30 @@ function statBarHtml(key, value) {
 
 // ---------------- Screen 2: 隊伍邀請 ----------------
 function renderInvitations() {
-  const teams = TEAMS[character.meta.region];
-  const avgStat = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
+  const rows = evaluateInvitations(character, runtimeRng);
 
-  const rows = teams.map((t) => {
-    const prob = clamp(0.5 + (avgStat - t.baseStrength) / 60, 0.05, 0.95);
-    const invited = runtimeRng() < prob;
-    return { ...t, invited, prob };
-  });
-
-  el("invitation-list").innerHTML = rows.map((t) => `
-    <div class="invite-row ${t.invited ? "invited" : "declined"}">
+  el("invitation-list").innerHTML = rows.map((r) => `
+    <div class="invite-row ${r.invited ? "invited" : "declined"}">
       <div class="invite-team">
-        <span class="invite-name">${t.name}</span>
-        <span class="invite-strength mono">戰力 ${t.baseStrength}</span>
+        <span class="invite-name">${r.team.name}</span>
+        <span class="invite-strength mono">該路戰力 ${r.team.positionStrength[character.meta.position]}</span>
       </div>
-      <div class="invite-status">${t.invited ? "邀請你加入" : "暫無邀約"}</div>
-      ${t.invited ? `<button class="btn-small" data-team="${t.name}">加入</button>` : ""}
+      <div class="invite-status">${r.invited ? (r.guaranteed ? "小聯盟球探邀請" : "一軍正式邀請") : "暫無邀約"}</div>
+      ${r.invited ? `<button class="btn-small" data-team="${r.team.name}">加入</button>` : ""}
     </div>
   `).join("");
 
   el("invitation-list").querySelectorAll("button[data-team]").forEach((b) =>
     b.addEventListener("click", () => {
-      const team = teams.find((t) => t.name === b.dataset.team);
-      character.team = { ...character.team, name: team.name, baseStrength: team.baseStrength, reputation: team.reputation };
-      character.meta.teamName = team.name;
+      const row = rows.find((r) => r.team.name === b.dataset.team);
+      const t = row.team;
+      character.team = { ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength, reputation: t.reputation };
+      character.meta.teamName = t.name;
       startCareer();
     })
   );
 
-  const anyInvited = rows.some((r) => r.invited);
-  el("no-invite-hint").style.display = anyInvited ? "none" : "block";
-  if (!anyInvited) {
-    const weakest = teams.reduce((a, b) => (a.baseStrength < b.baseStrength ? a : b));
-    el("no-invite-hint").querySelector("button").onclick = () => {
-      character.team = { ...character.team, name: weakest.name, baseStrength: weakest.baseStrength, reputation: weakest.reputation };
-      character.meta.teamName = weakest.name;
-      startCareer();
-    };
-  }
+  el("no-invite-hint").style.display = "none";
 }
 
 // ---------------- Screen 3: 生涯主迴圈 ----------------
@@ -178,6 +165,32 @@ function renderDashboard() {
     : `<span class="empty-hint-inline">目前健康</span>`;
 
   el("event-log").innerHTML = log.slice(0, 8).map((l) => `<div class="log-row"><span class="log-tag">${l.stage}</span>${l.text}</div>`).join("");
+
+  renderChampionPanel();
+}
+
+function renderChampionPanel() {
+  el("training-points").textContent = character.trainingPoints;
+
+  const myPos = character.meta.position;
+  const relevant = CHAMPIONS.filter((c) => c.primary === myPos || c.secondary.includes(myPos));
+  el("champion-select").innerHTML = relevant.map((c) => `<option value="${c.id}">${c.name}（${c.primary === myPos ? "本命" : "可兼"}）</option>`).join("");
+
+  const owned = Object.keys(character.champions);
+  el("champion-list").innerHTML = owned.length
+    ? owned.map((id) => {
+        const champ = getChampion(id);
+        if (!champ) return "";
+        const eff = Math.round(effectiveProficiency(character, id, myPos));
+        const isMeta = champ.flavor === character.seasonRecord.currentMeta;
+        return `
+          <div class="champ-row">
+            <span class="champ-name">${champ.name}${isMeta ? ' <span class="meta-tag">版本英雄</span>' : ""}</span>
+            <div class="stat-track"><div class="stat-fill" style="width:${eff}%"></div></div>
+            <span class="stat-value mono">${eff}</span>
+          </div>`;
+      }).join("")
+    : `<div class="empty-hint">尚未練習任何英雄，選一隻開始吧。</div>`;
 }
 
 function renderSummary() {
@@ -186,6 +199,7 @@ function renderSummary() {
   el("summary-name").textContent = c.meta.name;
   el("summary-title").textContent = generateTitle(c);
   el("summary-stats").innerHTML = `
+    <div>${retirementReasonText(c)}</div>
     <div>生涯年資：${c.meta.careerYear - 2026} 年</div>
     <div>累積戰績：${c.careerCounters.wins}勝 ${c.careerCounters.losses}敗</div>
     <div>累積 K/D/A：${c.careerCounters.kills} / ${c.careerCounters.deaths} / ${c.careerCounters.assists}</div>
@@ -196,18 +210,46 @@ function renderSummary() {
 }
 
 function generateTitle(c) {
+  // 依嚴重程度/特殊性排序判斷，越前面優先權越高
   if (c.flags["生涯終止_涉賭"]) return "涉賭爭議球員";
+  if (c.flags["家暴爭議"]) return "爭議纏身的問題選手";
+  if (c.flags["外遇中"]) return "緋聞不斷的花花公子";
+  if (c.flags["毒舌人設"]) return "嘴強王者";
+  if (c.careerCounters.worldsAppearances >= 2) return "世界賽常客";
   if (c.careerCounters.kills >= 1000) return "生涯千殺傳奇";
-  if (c.fame >= 80) return "話題王者";
+  if (c.fame >= 85) return "話題王者";
   if (c.chronicInjuries.length >= 2) return "傷病纏身的老將";
+  if (c.team.chemistry <= 25) return "更衣室的不安定因子";
+  if (c.careerCounters.wins >= 150) return "傳奇老兵";
   if (c.careerCounters.wins >= 100) return "百勝老兵";
+  if (c.flags["轉型意識流"]) return "以智取勝的智將";
+  if (c.flags["主動退役"]) return "全身而退的職業選手";
+  if (c.flags["戰績淘汰"]) return "被時代淘汰的選手";
+  if (c.meta.careerYear - 2026 <= 2 && c.retired) return "曇花一現的新秀";
   return "職業選手";
+}
+
+function retirementReasonText(c) {
+  if (c.flags["主動退役"]) return "生涯末段選擇急流勇退，主動宣布退役。";
+  if (c.flags["自然衰退退役"]) return "隨著年齡與狀態自然衰退，結束了職業生涯。";
+  if (c.flags["戰績淘汰"]) return "因長期戰績低迷被隊伍放棄，黯然離開賽場。";
+  return "職業生涯畫下句點。";
 }
 
 // ---------------- 賽段推進主邏輯 ----------------
 function advance() {
   if (!character || character.retired) return;
   const stageType = SEASON_FLOW[character.meta.currentStageIndex].type;
+
+  grantTrainingPoints(character, stageType);
+  tickChampionDecay(character, runtimeRng);
+
+  if (character.flags["待轉位置"]) {
+    applyPositionChange();
+  }
+  if (character.flags["待轉隊"]) {
+    applyTrade();
+  }
 
   if (stageType === "regular") {
     rollMetaVersion(character, runtimeRng);
@@ -226,6 +268,11 @@ function advance() {
     character.seasonRecord[stageKey].playoffResult = result;
     pushLog(`季後賽結果：${result}。`);
     if (result === "冠軍" || result === "亞軍") character.team.favor = clamp(character.team.favor + 8, 0, 100);
+    if (result === "冠軍") {
+      character.flags["剛奪冠"] = true;
+      maybeTriggerEvent();
+      delete character.flags["剛奪冠"];
+    }
   } else if (stageType === "international") {
     const result = simulatePlayoff(character, runtimeRng);
     character.seasonRecord.qualifiedEvents.push({ name: character.meta.currentStageName, result });
@@ -239,7 +286,9 @@ function advance() {
     tickInjuries(character, runtimeRng);
     applyAgeDecay(character, runtimeRng);
     maybeTriggerEvent();
-    checkRetirement();
+    if (!checkRetirement()) {
+      maybeOfferRetirement();
+    }
   }
 
   delete character.flags["本場carry但輸"];
@@ -253,6 +302,55 @@ function advance() {
   }
 }
 
+function applyTrade() {
+  delete character.flags["待轉隊"];
+  const dest = pickTradeDestination(character, runtimeRng);
+  if (!dest) {
+    pushLog(`轉隊邀約最終沒有下文，繼續留在 ${character.team.name}。`);
+    return;
+  }
+
+  const oldTeam = character.team.name;
+  const messyExit = character.team.favor < 20; // 對應「魚死網破」曝光劇本
+
+  character.team = {
+    ...character.team,
+    name: dest.name,
+    baseStrength: dest.baseStrength,
+    positionStrength: dest.positionStrength,
+    reputation: dest.reputation,
+    chemistry: 50,   // 新隊伍化學反應歸零重新累積
+    favor: 50,
+    contractYears: 2,
+  };
+  character.meta.teamName = dest.name;
+
+  if (messyExit) {
+    character.fame = clamp(character.fame + 10, 0, 100); // 話題性上升
+    character.team.reputation = clamp(character.team.reputation - 10, 0, 100);
+    pushLog(`從 ${oldTeam} 火爆離隊，私訊「魚死網破，今晚就走」被截圖流出，話題性暴衝但新東家對你多留了個心眼。`);
+  } else {
+    pushLog(`完成轉隊，從 ${oldTeam} 加入 ${dest.name}。`);
+  }
+}
+
+function applyPositionChange() {
+  delete character.flags["待轉位置"];
+  const oldPos = character.meta.position;
+  const oldSpecialtyKey = POSITION_SPECIALTY[oldPos];
+  const oldSpecialtyVal = character.stats[oldSpecialtyKey] ?? 50;
+
+  const candidates = Object.keys(character.team.positionStrength).filter((p) => p !== oldPos);
+  const targetPos = candidates.reduce((weakest, p) =>
+    character.team.positionStrength[p] < character.team.positionStrength[weakest] ? p : weakest, candidates[0]);
+
+  const newSpecialtyKey = POSITION_SPECIALTY[targetPos];
+  delete character.stats[oldSpecialtyKey];
+  character.stats[newSpecialtyKey] = clamp(Math.round(oldSpecialtyVal * 0.7), 1, 99);
+  character.meta.position = targetPos;
+  pushLog(`轉位置：從「${oldPos}」轉為「${targetPos}」，專精能力打七折延續。`);
+}
+
 function currentStageRecordKey() {
   const name = character.meta.currentStageName;
   if (name.startsWith("第一")) return "stage1";
@@ -262,10 +360,58 @@ function currentStageRecordKey() {
 
 function checkRetirement() {
   const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
-  if (character.meta.age >= 34 || (character.meta.age >= 28 && statAvg < 35)) {
+  if (character.meta.age >= 34) {
     character.retired = true;
-    pushLog(`${character.meta.name} 宣布退役，結束職業生涯。`);
+    character.flags["自然衰退退役"] = true;
+    pushLog(`${character.meta.name} 因年齡與狀態自然衰退，宣布退役。`);
+    return true;
   }
+  if (character.meta.age >= 28 && statAvg < 35) {
+    character.retired = true;
+    character.flags["戰績淘汰"] = true;
+    pushLog(`${character.meta.name} 因長期戰績低迷被隊伍放棄，黯然退役。`);
+    return true;
+  }
+  return false;
+}
+
+// 主動退役：年齡達門檻後，有機率跳出「要不要退休」的抉擇，玩家可以自己決定
+// 如果這個賽段已經有其他事件彈窗開著，就跳過，避免兩個彈窗互相覆蓋
+function maybeOfferRetirement() {
+  if (character.retired || character.meta.age < 27) return false;
+  if (el("event-modal").classList.contains("open")) return false;
+  const chance = clamp(0.15 + (character.meta.age - 27) * 0.08, 0.1, 0.9);
+  if (runtimeRng() >= chance) return false;
+  showRetirementPrompt();
+  return true;
+}
+
+function showRetirementPrompt() {
+  el("event-title").textContent = "生涯十字路口";
+  el("event-text").textContent = `${character.meta.age}歲，你開始認真思考是不是該為職業生涯畫下句點。`;
+  el("dice-area").innerHTML = "";
+  el("dice-area").classList.remove("show");
+  el("event-choices").classList.remove("hidden");
+  el("event-choices").innerHTML = `
+    <button class="btn-choice" data-act="retire">宣布退役，結束職業生涯</button>
+    <button class="btn-choice" data-act="continue">繼續留在賽場上奮戰</button>
+  `;
+  el("event-modal").classList.add("open");
+
+  el("event-choices").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      el("event-modal").classList.remove("open");
+      if (b.dataset.act === "retire") {
+        character.retired = true;
+        character.flags["主動退役"] = true;
+        pushLog(`${character.meta.name} 主動宣布退役，結束職業生涯。`);
+        renderSummary();
+      } else {
+        pushLog(`${character.meta.age}歲，決定繼續留在賽場上奮戰。`);
+        renderDashboard();
+      }
+    }, { once: true })
+  );
 }
 
 function maybeTriggerEvent() {
@@ -368,6 +514,21 @@ el("btn-confirm-roll").addEventListener("click", () => {
   renderInvitations();
 });
 el("btn-advance").addEventListener("click", advance);
+el("btn-train").addEventListener("click", () => {
+  if (character.trainingPoints < 1) return;
+  const championId = el("champion-select").value;
+  if (!championId) return;
+  trainChampion(character, championId, 1, character.meta.currentStageIndex);
+  character.trainingPoints -= 1;
+  renderChampionPanel();
+});
+el("btn-fitness").addEventListener("click", () => {
+  if (character.trainingPoints < 1) return;
+  character.trainingPoints -= 1;
+  character.fitnessBoost = (character.fitnessBoost ?? 0) + 0.1;
+  pushLog(`花費訓練點數保養身體，下次衰退判定機率降低。`);
+  renderDashboard();
+});
 el("btn-restart").addEventListener("click", () => {
   location.reload();
 });

@@ -13,42 +13,61 @@ export const POSITION_SPECIALTY = {
   "輔助": "視野控制",
 };
 
+// 用隊名當種子，穩定地把單一 baseStrength 展開成五路數值（demo佔位用）
+// 你研究真實數據後，直接把每隊的 positionStrength 覆蓋成手填的真實值即可
+function expandPositionStrength(teamName, baseStrength) {
+  let h = 0;
+  for (let i = 0; i < teamName.length; i++) h = (h * 31 + teamName.charCodeAt(i)) >>> 0;
+  const spread = POSITIONS.map((_, i) => {
+    const v = ((h >> (i * 5)) % 17) - 8; // -8 ~ +8 穩定浮動
+    return v;
+  });
+  const result = {};
+  POSITIONS.forEach((pos, i) => {
+    result[pos] = Math.max(30, Math.min(99, baseStrength + spread[i]));
+  });
+  return result;
+}
+
 // ---- 賽區 ----
 export const REGIONS = ["LPL", "LCK", "LEC", "LTA", "LCP"];
 
-// 2026 真實隊伍佔位資料。baseStrength 請自行研究填入真實數值 (0-100)。
-// tier 只是顯示用標籤，不影響運算。
+// 2026 真實隊伍佔位資料。baseStrength / positionStrength 請自行研究後覆蓋成真實數值 (0-100)。
+function buildTeams(list) {
+  return list.map((t) => ({ ...t, positionStrength: expandPositionStrength(t.name, t.baseStrength) }));
+}
+
 export const TEAMS = {
-  LPL: [
+  LPL: buildTeams([
     { name: "BLG",  baseStrength: 82, reputation: 70 },
     { name: "TES",  baseStrength: 78, reputation: 68 },
     { name: "JDG",  baseStrength: 85, reputation: 80 },
     { name: "AL",   baseStrength: 74, reputation: 60 },
     { name: "LNG",  baseStrength: 76, reputation: 62 },
-  ],
-  LCK: [
+  ]),
+  LCK: buildTeams([
     { name: "T1",     baseStrength: 88, reputation: 90 },
     { name: "GEN.G",  baseStrength: 86, reputation: 82 },
     { name: "HLE",    baseStrength: 79, reputation: 65 },
     { name: "DK",     baseStrength: 77, reputation: 63 },
     { name: "KT",     baseStrength: 73, reputation: 58 },
-  ],
-  LEC: [
+  ]),
+  LEC: buildTeams([
     { name: "G2",   baseStrength: 80, reputation: 75 },
     { name: "FNC",  baseStrength: 74, reputation: 68 },
     { name: "MDK",  baseStrength: 70, reputation: 55 },
     { name: "KC",   baseStrength: 68, reputation: 50 },
-  ],
-  LTA: [
+  ]),
+  LTA: buildTeams([
     { name: "100T", baseStrength: 70, reputation: 60 },
     { name: "TL",   baseStrength: 72, reputation: 62 },
     { name: "FLY",  baseStrength: 66, reputation: 50 },
-  ],
-  LCP: [
+  ]),
+  LCP: buildTeams([
     { name: "CFO",  baseStrength: 62, reputation: 55 },
     { name: "PSG",  baseStrength: 60, reputation: 48 },
     { name: "GAM",  baseStrength: 63, reputation: 52 },
-  ],
+  ]),
 };
 
 // ---- 能力值 ----
@@ -130,12 +149,17 @@ export function createCharacter({ name, position, region, teamName }) {
     fame: 10,
     talents: [],
     flags: {},
+    champions: {},       // { championId: { proficiency, lastPracticedStage, peakProficiency? } }
+    trainingPoints: 0,   // 可自由分配的訓練點數，賽段結束時發放
     injuries: [],
     chronicInjuries: [],
     rosterStatus: "rotation", // starter | rotation | bench
+    decline: { totalReactionLoss: 0 }, // 衰退累積量，用來觸發「手感不再」事件
+    fitnessBoost: 0,                    // 訓練點數換來的暫時性衰退減免（消耗型）
     team: {
       name: teamName,
       baseStrength: 60,
+      positionStrength: { "上路": 60, "打野": 60, "中路": 60, "ADC": 60, "輔助": 60 },
       chemistry: 50,
       reputation: 50,
       favor: 50,

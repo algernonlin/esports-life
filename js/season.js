@@ -4,6 +4,7 @@
 import { SEASON_FLOW, META_VERSIONS, TEAMS } from "./state.js";
 import { simulateMatch } from "./match.js";
 import { clamp, randomRange, pickWeighted } from "./rng.js";
+import { decayChampionProficiency } from "./champions.js";
 
 // -------------------------------------------------------------
 // 國際賽資格判定（示範用簡化規則，可依你研究的真實名額調整）
@@ -97,20 +98,124 @@ export function rollMetaVersion(character, runtimeRng) {
 
 // -------------------------------------------------------------
 // 年齡衰退：只影響 反應 / 體能
+//
+// 曲線分四段，不是單純線性：
+//   16-20 上升期     幾乎不衰退（靠事件/訓練成長為主）
+//   21-24 巔峰平台期  極低衰退機率
+//   25-28 緩慢衰退期  機率逐年爬升
+//   29+   加速衰退期  機率明顯升高
+//
+// 位置差異：中路/ADC最依賴手速，衰退感受最明顯；輔助靠意識/溝通，衰退最慢；
+// 上路/打野居中。
+//
+// 意識+領導可以部分抵銷衰退機率（老將靠大局觀撐手速的既視感），但抵銷有上限，
+// 終究抵不過歲月。訓練點數換來的 fitnessBoost 也能再壓低機率（一次性消耗）。
+// 累積衰退量存進 decline.totalReactionLoss，供「手感不再」事件判斷觸發時機。
 // -------------------------------------------------------------
+const POSITION_DECLINE_MULTIPLIER = { "中路": 1.15, "ADC": 1.15, "上路": 1.0, "打野": 1.0, "輔助": 0.75 };
+
+function baseDeclineProbability(age) {
+  if (age < 21) return 0;
+  if (age <= 24) return 0.03;
+  if (age <= 28) return 0.05 + (age - 24) * 0.05;
+  return clamp(0.25 + (age - 28) * 0.07, 0, 0.75);
+}
+
 export function applyAgeDecay(character, runtimeRng) {
   const age = character.meta.age;
-  const declineStart = 25;
-  if (age < declineStart) return;
+  let prob = baseDeclineProbability(age);
+  if (prob <= 0) return;
 
-  const yearsOver = age - declineStart;
-  const chronicBonus = character.chronicInjuries.length * 0.05;
-  const declineProb = clamp(0.05 + yearsOver * 0.04 + chronicBonus, 0, 0.7);
+  prob *= POSITION_DECLINE_MULTIPLIER[character.meta.position] ?? 1.0;
+  prob += character.chronicInjuries.length * 0.05; // 慢性傷病加重衰退
 
-  if (runtimeRng() < declineProb) {
-    character.stats["反應"] = clamp(character.stats["反應"] - Math.round(randomRange(runtimeRng, 1, 3)), 1, 99);
-    character.dynamic["體能"] = clamp(character.dynamic["體能"] - Math.round(randomRange(runtimeRng, 2, 5)), 0, 100);
+  // 轉型意識流／堅持巔峰打法：呼應「手感不再」事件的選擇
+  if (character.flags["轉型意識流"]) prob *= 0.75;
+  if (character.flags["堅持巔峰打法"]) prob *= 1.15;
+
+  // 意識+領導部分抵銷衰退機率，上限15個百分點，不會完全免疫
+  const offset = clamp((character.stats["意識"] + character.stats["領導"] - 100) / 400, 0, 0.15);
+  prob = clamp(prob - offset, 0, 0.9);
+
+  // 訓練點數換來的保養加成（一次性消耗）
+  if (character.fitnessBoost > 0) {
+    prob = clamp(prob - character.fitnessBoost, 0, 0.9);
+    character.fitnessBoost = 0;
   }
+
+  if (runtimeRng() < prob) {
+    const reactionDrop = Math.round(randomRange(runtimeRng, 1, 3));
+    character.stats["反應"] = clamp(character.stats["反應"] - reactionDrop, 1, 99);
+    character.dynamic["體能"] = clamp(character.dynamic["體能"] - Math.round(randomRange(runtimeRng, 2, 5)), 0, 100);
+    character.decline.totalReactionLoss += reactionDrop;
+  }
+}
+
+// -------------------------------------------------------------
+// 轉隊：在賽季中被挖角時，從同賽區挑一支「該位置需求較高」的隊伍
+// 排除現在的隊伍；用跟邀請一樣的補強邏輯，越缺你這個位置的隊伍權重越高
+// -------------------------------------------------------------
+export function pickTradeDestination(character, runtimeRng) {
+  const teams = (TEAMS[character.meta.region] ?? []).filter((t) => t.name !== character.team.name);
+  if (teams.length === 0) return null;
+
+  const myPos = character.meta.position;
+  const weighted = teams.map((t) => {
+    const need = Math.max(1, 100 - (t.positionStrength[myPos] ?? t.baseStrength));
+    return { ...t, weight: need };
+  });
+  return pickWeighted(runtimeRng, weighted);
+}
+
+// -------------------------------------------------------------
+// 訓練點數發放（自由分配到英雄熟練度用）與遺忘機制觸發
+// -------------------------------------------------------------
+const TRAINING_POINTS_BY_STAGE_TYPE = {
+  regular: 2,
+  playoff: 0,
+  international: 0,
+  offseason_short: 3,
+  offseason_long: 6,
+};
+
+export function grantTrainingPoints(character, stageType) {
+  character.trainingPoints += TRAINING_POINTS_BY_STAGE_TYPE[stageType] ?? 0;
+}
+
+export function tickChampionDecay(character, runtimeRng) {
+  decayChampionProficiency(character, character.meta.currentStageIndex, runtimeRng);
+}
+
+// -------------------------------------------------------------
+// 隊伍邀請評估：依「你的位置」對「該隊該位置的需求」做補強式判定
+// 該隊該位置越弱，門檻越低（求才若渴）；保底至少湊滿3隊邀請
+// -------------------------------------------------------------
+export function evaluateInvitations(character, runtimeRng) {
+  const teams = TEAMS[character.meta.region] ?? [];
+  const myPos = character.meta.position;
+  const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
+
+  const rows = teams.map((t) => {
+    const positionNeed = t.positionStrength[myPos] ?? t.baseStrength;
+    const prob = clamp(0.5 + (statAvg - positionNeed) / 60, 0.05, 0.95);
+    return { team: t, prob, invited: false, guaranteed: false };
+  });
+
+  rows.forEach((r) => { r.invited = runtimeRng() < r.prob; });
+
+  const invitedCount = rows.filter((r) => r.invited).length;
+  if (invitedCount < 3) {
+    const candidates = rows.filter((r) => !r.invited).sort((a, b) => b.prob - a.prob);
+    let need = 3 - invitedCount;
+    for (const r of candidates) {
+      if (need <= 0) break;
+      r.invited = true;
+      r.guaranteed = true; // 保底邀請：小聯盟/二隊性質的機會，非正式一軍門檻通過
+      need--;
+    }
+  }
+
+  return rows;
 }
 
 // -------------------------------------------------------------
