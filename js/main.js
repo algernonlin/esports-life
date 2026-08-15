@@ -15,6 +15,7 @@ import {
   advanceStage, simulateRegularStage, simulatePlayoff, checkQualification,
   rollMetaVersion, applyAgeDecay, evaluateRosterStatus,
   evaluateInvitations, grantTrainingPoints, tickChampionDecay, pickTradeDestination,
+  evaluateContractRenewal,
 } from "./season.js";
 import { checkMilestones } from "./achievements.js";
 import { rollInjuryChance, tickInjuries } from "./injuries.js";
@@ -25,6 +26,32 @@ let character = null;
 let currentSeed = "";
 let pendingRoll = { position: "中路", region: "LPL" };
 const log = [];
+
+// ---------------- 存檔機制 ----------------
+const SAVE_KEY = "esports_life_save_v1";
+
+function saveGame() {
+  if (!character || character.retired) return; // 已退役的生涯不用存，避免覆蓋掉renderSummary()清除的存檔
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), character, log }));
+  } catch (e) {
+    console.warn("存檔失敗", e);
+  }
+}
+
+function loadSavedGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+}
 
 // ---------------- Screen 1: 基本設定 ----------------
 function renderSetup() {
@@ -54,6 +81,15 @@ function doRoll(seedStr) {
   character.stats = rollStats(seedRng, pendingRoll.position);
   character.personality = rollPersonality(seedRng);
   character.talents = rollTalents(seedRng);
+
+  // 夜貓子：體能基礎值略低
+  if (character.talents.some((t) => t.id === "night_owl")) {
+    character.dynamic["體能"] = clamp(character.dynamic["體能"] - 5, 0, 100);
+  }
+  // 世一XX：自封世界第一，壓力基準值偏高
+  if (character.talents.some((t) => t.id === "self_proclaimed_goat")) {
+    character.dynamic["壓力"] = clamp(character.dynamic["壓力"] + 10, 0, 100);
+  }
 
   renderRollResult();
   showScreen("screen-roll");
@@ -150,6 +186,7 @@ function renderDashboard() {
   el("dash-dynamic").innerHTML = `
     ${statBarHtml("心態", character.dynamic["心態"])}
     ${statBarHtml("體能", character.dynamic["體能"])}
+    ${statBarHtml("壓力", character.dynamic["壓力"])}
   `;
   el("dash-team").innerHTML = `
     <div class="team-stat"><span>隊伍化學反應</span><span class="mono">${Math.round(character.team.chemistry)}</span></div>
@@ -176,6 +213,13 @@ function renderChampionPanel() {
   const relevant = CHAMPIONS.filter((c) => c.primary === myPos || c.secondary.includes(myPos));
   el("champion-select").innerHTML = relevant.map((c) => `<option value="${c.id}">${c.name}（${c.primary === myPos ? "本命" : "可兼"}）</option>`).join("");
 
+  const metaIds = character.seasonRecord.metaChampions ?? [];
+  const metaMyPos = metaIds.map((id) => getChampion(id)).filter((c) => c && c.primary === myPos);
+  el("meta-champion-list").innerHTML = metaMyPos.length
+    ? `<div class="meta-champ-title">本賽段「${myPos}」版本英雄</div>
+       <div class="meta-champ-chips">${metaMyPos.map((c) => `<span class="meta-champ-chip ${character.champions[c.id] ? "owned" : ""}">${c.name}</span>`).join("")}</div>`
+    : "";
+
   const owned = Object.keys(character.champions);
   el("champion-list").innerHTML = owned.length
     ? owned.map((id) => {
@@ -197,16 +241,31 @@ function renderSummary() {
   showScreen("screen-summary");
   const c = character;
   el("summary-name").textContent = c.meta.name;
+  el("summary-seed").textContent = currentSeed ? `SEED ${currentSeed}` : "";
   el("summary-title").textContent = generateTitle(c);
-  el("summary-stats").innerHTML = `
-    <div>${retirementReasonText(c)}</div>
-    <div>生涯年資：${c.meta.careerYear - 2026} 年</div>
-    <div>累積戰績：${c.careerCounters.wins}勝 ${c.careerCounters.losses}敗</div>
-    <div>累積 K/D/A：${c.careerCounters.kills} / ${c.careerCounters.deaths} / ${c.careerCounters.assists}</div>
-    <div>世界賽次數：${c.careerCounters.worldsAppearances}</div>
-    <div>知名度：${Math.round(c.fame)}</div>
-    <div>慢性傷病：${c.chronicInjuries.join("、") || "無"}</div>
-  `;
+  el("summary-subline").textContent = retirementReasonText(c);
+
+  el("stat-years").textContent = `${c.meta.careerYear - 2026} 年`;
+  el("stat-record").textContent = `${c.careerCounters.wins}勝 ${c.careerCounters.losses}敗`;
+  el("stat-kda").textContent = `${c.careerCounters.kills} / ${c.careerCounters.deaths} / ${c.careerCounters.assists}`;
+  el("stat-worlds").textContent = `${c.careerCounters.worldsAppearances} 次`;
+  el("stat-fame").textContent = Math.round(c.fame);
+  el("stat-injuries").textContent = c.chronicInjuries.join("、") || "無";
+
+  clearSave(); // 生涯結束，這份存檔沒有繼續的意義
+}
+
+function downloadShareCard() {
+  if (typeof html2canvas === "undefined") {
+    alert("圖片匯出功能載入失敗，請檢查網路連線。");
+    return;
+  }
+  html2canvas(el("share-card"), { backgroundColor: "#0a0a0b", scale: 2 }).then((canvas) => {
+    const link = document.createElement("a");
+    link.download = `${character.meta.name}_生涯結算.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  });
 }
 
 function generateTitle(c) {
@@ -244,6 +303,17 @@ function advance() {
   grantTrainingPoints(character, stageType);
   tickChampionDecay(character, runtimeRng);
 
+  // 壓力累積／消退：接近大賽自動累積（抗壓值可以緩衝累積量），休賽期自然消退
+  if (stageType === "playoff" || stageType === "international") {
+    const gain = clamp(15 - (character.stats["抗壓"] - 50) / 5, 5, 25);
+    const talentMod = character.talents?.some((t) => t.id === "self_proclaimed_goat") ? 1.3 : 1;
+    character.dynamic["壓力"] = clamp((character.dynamic["壓力"] ?? 20) + gain * talentMod, 0, 100);
+  } else if (stageType === "offseason_short") {
+    character.dynamic["壓力"] = clamp((character.dynamic["壓力"] ?? 20) - 8, 0, 100);
+  } else if (stageType === "offseason_long") {
+    character.dynamic["壓力"] = clamp((character.dynamic["壓力"] ?? 20) - 20, 0, 100);
+  }
+
   if (character.flags["待轉位置"]) {
     applyPositionChange();
   }
@@ -254,10 +324,13 @@ function advance() {
   if (stageType === "regular") {
     rollMetaVersion(character, runtimeRng);
     const stageKey = currentStageRecordKey();
-    const { wins, losses } = simulateRegularStage(character, runtimeRng);
+    const { wins, losses, longestWinStreak, longestLossStreak } = simulateRegularStage(character, runtimeRng);
     character.seasonRecord[stageKey].wins += wins;
     character.seasonRecord[stageKey].losses += losses;
-    pushLog(`例行賽戰績 ${wins}勝${losses}敗。`);
+    let streakNote = "";
+    if (longestWinStreak >= 3) streakNote = `，其中一度打出${longestWinStreak}連勝，隊伍士氣明顯提升`;
+    else if (longestLossStreak >= 3) streakNote = `，其中一度吞下${longestLossStreak}連敗，氣氛一度低迷`;
+    pushLog(`例行賽戰績 ${wins}勝${losses}敗${streakNote}。`);
     maybeTriggerEvent();
     checkMilestones(character, log);
     const injury = rollInjuryChance(character, runtimeRng);
@@ -274,11 +347,17 @@ function advance() {
       delete character.flags["剛奪冠"];
     }
   } else if (stageType === "international") {
-    const result = simulatePlayoff(character, runtimeRng);
+    const result = simulatePlayoff(character, runtimeRng, { isInternational: true });
     character.seasonRecord.qualifiedEvents.push({ name: character.meta.currentStageName, result });
     character.careerCounters.worldsAppearances += character.meta.currentStageName === "S16世界大賽" ? 1 : 0;
     character.fame = clamp(character.fame + 10, 0, 100);
     pushLog(`${character.meta.currentStageName} 結果：${result}，知名度提升。`);
+
+    // 四強就算成功：打進國際賽（現況的止步四強已是最差結果）後，狀態會下滑
+    if (character.talents.some((t) => t.id === "semifinal_enough")) {
+      character.dynamic["心態"] = clamp(character.dynamic["心態"] - 10, 0, 100);
+      pushLog(`打完國際賽後有點鬆懈，狀態出現下滑。`);
+    }
   } else if (stageType === "offseason_short") {
     maybeTriggerEvent();
     tickInjuries(character, runtimeRng);
@@ -287,7 +366,13 @@ function advance() {
     applyAgeDecay(character, runtimeRng);
     maybeTriggerEvent();
     if (!checkRetirement()) {
-      maybeOfferRetirement();
+      character.team.contractYears -= 1;
+      const modalOpen = () => el("event-modal").classList.contains("open");
+      if (character.team.contractYears <= 0 && !modalOpen()) {
+        handleContractRenewal();
+      } else if (!modalOpen()) {
+        maybeOfferRetirement();
+      }
     }
   }
 
@@ -300,6 +385,7 @@ function advance() {
   } else {
     renderSummary();
   }
+  saveGame();
 }
 
 function applyTrade() {
@@ -328,10 +414,83 @@ function applyTrade() {
   if (messyExit) {
     character.fame = clamp(character.fame + 10, 0, 100); // 話題性上升
     character.team.reputation = clamp(character.team.reputation - 10, 0, 100);
-    pushLog(`從 ${oldTeam} 火爆離隊，私訊「魚死網破，今晚就走」被截圖流出，話題性暴衝但新東家對你多留了個心眼。`);
+    pushLog(`從 ${oldTeam} 火爆離隊，私訊「魚死網破，今晚就走」被截圖貼上「最強聯盟」，話題性暴衝但新東家對你多留了個心眼。`);
   } else {
     pushLog(`完成轉隊，從 ${oldTeam} 加入 ${dest.name}。`);
   }
+}
+
+// ---------------- 合約續約 ----------------
+function handleContractRenewal() {
+  const willRenew = evaluateContractRenewal(character);
+  showContractPrompt(willRenew);
+}
+
+function showContractPrompt(teamWantsRenew) {
+  el("event-title").textContent = "合約到期";
+  el("dice-area").innerHTML = "";
+  el("dice-area").classList.remove("show");
+  el("event-choices").classList.remove("hidden");
+
+  if (teamWantsRenew) {
+    el("event-text").textContent = `${character.team.name} 對你這幾年的表現滿意，開出2年的續約合約。`;
+    el("event-choices").innerHTML = `
+      <button class="btn-choice" data-act="renew">接受續約，留在 ${character.team.name}</button>
+      <button class="btn-choice" data-act="explore">婉拒，出去看看自由市場</button>`;
+  } else {
+    el("event-text").textContent = `${character.team.name} 決定不與你續約，你必須尋找下一個東家。`;
+    el("event-choices").innerHTML = `<button class="btn-choice" data-act="explore">前往自由市場</button>`;
+  }
+
+  el("event-modal").classList.add("open");
+  el("event-choices").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      el("event-modal").classList.remove("open");
+      if (b.dataset.act === "renew") {
+        character.team.contractYears = 2;
+        pushLog(`與 ${character.team.name} 完成續約，簽下2年新合約。`);
+        renderDashboard();
+        saveGame();
+      } else {
+        showFreeAgencyPrompt();
+      }
+    }, { once: true })
+  );
+}
+
+function showFreeAgencyPrompt() {
+  const rows = evaluateInvitations(character, runtimeRng).filter((r) => r.invited && r.team.name !== character.team.name);
+  if (rows.length === 0) {
+    // 理論上 evaluateInvitations 保底3隊，這裡防呆一下避免篩掉自己隊伍後剛好變0隊
+    const fallback = evaluateInvitations(character, runtimeRng).filter((r) => r.team.name !== character.team.name)[0];
+    rows.push(fallback);
+  }
+  el("event-title").textContent = "自由市場";
+  el("event-text").textContent = "以下隊伍向你招手，選一支加入：";
+  el("dice-area").innerHTML = "";
+  el("dice-area").classList.remove("show");
+  el("event-choices").classList.remove("hidden");
+  el("event-choices").innerHTML = rows.map((r) =>
+    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（該路戰力 ${r.team.positionStrength[character.meta.position]}）${r.guaranteed ? "・小聯盟邀請" : ""}</button>`
+  ).join("");
+  el("event-modal").classList.add("open");
+
+  el("event-choices").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      const row = rows.find((r) => r.team.name === b.dataset.team);
+      const t = row.team;
+      const oldTeam = character.team.name;
+      character.team = {
+        ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength,
+        reputation: t.reputation, chemistry: 50, favor: 50, contractYears: 2,
+      };
+      character.meta.teamName = t.name;
+      pushLog(`合約到期後在自由市場，從 ${oldTeam} 轉會加入 ${t.name}。`);
+      el("event-modal").classList.remove("open");
+      renderDashboard();
+      saveGame();
+    }, { once: true })
+  );
 }
 
 function applyPositionChange() {
@@ -410,6 +569,7 @@ function showRetirementPrompt() {
         pushLog(`${character.meta.age}歲，決定繼續留在賽場上奮戰。`);
         renderDashboard();
       }
+      saveGame();
     }, { once: true })
   );
 }
@@ -494,6 +654,7 @@ function finishEvent(event, choice, outcome, dice) {
   pushLog(`【${event.title}】選擇了「${choice.label}」${diceNote}${resultNote}`);
   el("event-modal").classList.remove("open");
   renderDashboard();
+  saveGame();
 }
 
 // ---------------- 畫面切換 ----------------
@@ -521,6 +682,7 @@ el("btn-train").addEventListener("click", () => {
   trainChampion(character, championId, 1, character.meta.currentStageIndex);
   character.trainingPoints -= 1;
   renderChampionPanel();
+  saveGame();
 });
 el("btn-fitness").addEventListener("click", () => {
   if (character.trainingPoints < 1) return;
@@ -528,9 +690,52 @@ el("btn-fitness").addEventListener("click", () => {
   character.fitnessBoost = (character.fitnessBoost ?? 0) + 0.1;
   pushLog(`花費訓練點數保養身體，下次衰退判定機率降低。`);
   renderDashboard();
+  saveGame();
+});
+el("btn-relax").addEventListener("click", () => {
+  if (character.trainingPoints < 1) return;
+  character.trainingPoints -= 1;
+  character.dynamic["壓力"] = clamp(character.dynamic["壓力"] - 15, 0, 100);
+  pushLog(`花費訓練點數放鬆紓壓，壓力值下降。`);
+  renderDashboard();
+  saveGame();
+});
+el("btn-new-career").addEventListener("click", () => {
+  if (confirm("確定要放棄目前的生涯，重新開始嗎？這個動作無法復原。")) {
+    clearSave();
+    location.reload();
+  }
 });
 el("btn-restart").addEventListener("click", () => {
   location.reload();
 });
+el("btn-download-card").addEventListener("click", downloadShareCard);
 
-renderSetup();
+// ---------------- 啟動流程：檢查是否有存檔 ----------------
+function showContinuePrompt(saved) {
+  const c = saved.character;
+  el("continue-name").textContent = c.meta.name;
+  el("continue-info").textContent = `${c.meta.position} · ${c.team.name} · ${c.meta.age}歲 · ${c.meta.careerYear}年`;
+  showScreen("screen-continue");
+
+  el("btn-continue-yes").addEventListener("click", () => {
+    character = c;
+    log.length = 0;
+    log.push(...(saved.log ?? []));
+    showScreen("screen-dashboard");
+    renderDashboard();
+  }, { once: true });
+
+  el("btn-continue-no").addEventListener("click", () => {
+    clearSave();
+    showScreen("screen-setup");
+  }, { once: true });
+}
+
+const savedGame = loadSavedGame();
+if (savedGame && savedGame.character && !savedGame.character.retired) {
+  showContinuePrompt(savedGame);
+} else {
+  if (savedGame) clearSave(); // 上次已經退役結束的存檔，沒有繼續的意義，順便清掉
+  renderSetup();
+}

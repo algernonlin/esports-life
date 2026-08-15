@@ -7,10 +7,30 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
 <div class="scanline"></div>
+
+<!-- ============ SCREEN 0：繼續上次生涯 ============ -->
+<section id="screen-continue" class="screen">
+  <div class="frame">
+    <header class="masthead">
+      <span class="eyebrow">SAVE FOUND</span>
+      <h1>發現存檔</h1>
+      <p class="sub">偵測到上次未完成的生涯，要繼續嗎？</p>
+    </header>
+    <div class="panel">
+      <div class="seed-tag">選手 <span class="mono accent-text" id="continue-name">—</span></div>
+      <p class="sub" id="continue-info">—</p>
+      <div class="btn-row">
+        <button id="btn-continue-no" class="btn-ghost">開始新生涯</button>
+        <button id="btn-continue-yes" class="btn-primary">繼續上次生涯 ▸</button>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- ============ SCREEN 1：開局設定 ============ -->
 <section id="screen-setup" class="screen active">
@@ -114,6 +134,8 @@
         <h3 class="section-title small">傷病</h3>
         <div id="dash-injuries" class="injury-list"></div>
       </div>
+
+      <button id="btn-new-career" class="btn-ghost btn-block" style="margin-top:auto;">刪除存檔，重新開始</button>
     </aside>
 
     <main class="dash-main">
@@ -145,6 +167,10 @@
         <div class="train-controls">
           <button id="btn-fitness" class="btn-ghost" style="flex:1;">花1點保養體能（降低下次衰退機率）</button>
         </div>
+        <div class="train-controls">
+          <button id="btn-relax" class="btn-ghost" style="flex:1;">花1點紓壓（降低壓力值）</button>
+        </div>
+        <div id="meta-champion-list" class="meta-champion-list"></div>
         <div id="champion-list" class="champion-list"></div>
       </div>
 
@@ -161,12 +187,37 @@
   <div class="frame">
     <header class="masthead">
       <span class="eyebrow">CAREER RETROSPECTIVE</span>
-      <h1 id="summary-name">—</h1>
-      <p class="sub accent-text" id="summary-title">—</p>
+      <h1>生涯結算</h1>
     </header>
+
+    <div id="share-card" class="share-card">
+      <div class="share-card-inner">
+        <div class="share-eyebrow">S16 CAREER SIM · FINAL REPORT</div>
+        <div class="share-title-row">
+          <div class="share-name" id="summary-name">—</div>
+          <div class="share-seed mono" id="summary-seed">—</div>
+        </div>
+        <div class="share-badge" id="summary-title">—</div>
+        <div class="share-subline" id="summary-subline">—</div>
+
+        <div class="share-stat-grid">
+          <div class="share-stat"><span class="share-stat-label">生涯年資</span><span class="share-stat-value mono" id="stat-years">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">累積戰績</span><span class="share-stat-value mono" id="stat-record">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">生涯 K/D/A</span><span class="share-stat-value mono" id="stat-kda">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">世界賽次數</span><span class="share-stat-value mono" id="stat-worlds">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">知名度</span><span class="share-stat-value mono" id="stat-fame">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">慢性傷病</span><span class="share-stat-value mono" id="stat-injuries">—</span></div>
+        </div>
+
+        <div class="share-footer">YAKYULIFE-STYLE ESPORTS SIM · yourdomain.github.io</div>
+      </div>
+    </div>
+
     <div class="panel">
-      <div id="summary-stats" class="summary-stats mono"></div>
-      <button id="btn-restart" class="btn-primary btn-block">開始新生涯</button>
+      <div class="btn-row">
+        <button id="btn-download-card" class="btn-ghost">下載結算卡圖片</button>
+        <button id="btn-restart" class="btn-primary">開始新生涯</button>
+      </div>
     </div>
   </div>
 </section>

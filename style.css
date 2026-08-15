@@ -1,3 +1,8 @@
+/* ============================================================
+   DESIGN TOKENS
+   概念：電競賽事轉播的「數據面板」美學 — 不是玻璃擬態，不是漸層卡片。
+   深石墨背景 + 廣播計分板金色強調 + 冷灰藍次色 + 窄體大寫展示字。
+   ============================================================ */
 :root {
   --bg:            #0a0a0b;
   --bg-panel:      #151517;
@@ -12,7 +17,7 @@
 
   --accent:        #e4032e;   /* T1 signature red */
   --accent-dim:    #7a0f22;
-  --accent-2:      #b5adb0;
+  --accent-2:      #b5adb0;   /* 銀灰，次要數據，呼應T1的黑銀識別 */
   --positive:      #4caf82;
   --negative:      #d9622f;
 
@@ -37,7 +42,7 @@ body {
 
 .mono { font-family: var(--font-mono); }
 
-
+/* 細微掃描線紋理，呼應轉播畫面質感，極度低調 */
 .scanline {
   pointer-events: none;
   position: fixed; inset: 0;
@@ -325,6 +330,14 @@ body {
 .train-controls { display: flex; gap: 8px; margin-bottom: 14px; }
 .train-controls select { flex: 1; }
 .champion-list { display: flex; flex-direction: column; gap: 10px; }
+.meta-champion-list { margin-bottom: 12px; }
+.meta-champ-title { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; letter-spacing: 0.05em; }
+.meta-champ-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.meta-champ-chip {
+  font-size: 12px; padding: 3px 9px; border-radius: 2px;
+  border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg-inset);
+}
+.meta-champ-chip.owned { border-color: var(--accent); color: var(--accent); }
 .champ-row { display: grid; grid-template-columns: 120px 1fr 34px; align-items: center; gap: 10px; }
 .champ-name { font-size: 13px; color: var(--text-secondary); }
 .meta-tag {
@@ -340,8 +353,83 @@ body {
   margin-right: 8px;
 }
 
-/* ---------------- Summary ---------------- */
+/* ---------------- Summary / Share Card ---------------- */
 .summary-stats { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+
+.share-card {
+  background: linear-gradient(160deg, var(--bg-panel) 0%, var(--bg-inset) 100%);
+  border: 1px solid var(--accent-dim);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.share-card::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(135deg, rgba(228,3,46,0.04) 0px, rgba(228,3,46,0.04) 2px, transparent 2px, transparent 14px);
+  pointer-events: none;
+}
+.share-card-inner {
+  position: relative;
+  padding: 32px 28px 24px;
+}
+.share-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  margin-bottom: 18px;
+}
+.share-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.share-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 40px;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+.share-seed { font-size: 12px; color: var(--text-faint); }
+.share-badge {
+  display: inline-block;
+  margin: 12px 0 8px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  padding: 6px 16px;
+  border-radius: 2px;
+}
+.share-subline { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+
+.share-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 24px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 20px;
+}
+.share-stat { display: flex; flex-direction: column; gap: 4px; }
+.share-stat-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--text-faint); text-transform: uppercase; }
+.share-stat-value { font-size: 18px; color: var(--text-primary); font-weight: 600; }
+
+.share-footer {
+  margin-top: 26px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.05em;
+}
 
 /* ---------------- Modal ---------------- */
 .modal {

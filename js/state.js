@@ -32,43 +32,84 @@ function expandPositionStrength(teamName, baseStrength) {
 // ---- 賽區 ----
 export const REGIONS = ["LPL", "LCK", "LEC", "LTA", "LCP"];
 
-// 2026 真實隊伍佔位資料。baseStrength / positionStrength 請自行研究後覆蓋成真實數值 (0-100)。
+// 2026 真實隊伍資料，依照 LoL Esports Global Power Rankings（2026/8/14）換算。
+// 換算公式：baseStrength = 60 + (GPR分數-1092)/(1533-1092)*35，四捨五入，範圍約60-95。
+// reputation 用 baseStrength*0.9 粗略估計媒體評價的初始值，之後遊戲過程會自動連動戰績調整。
+// 想精確反映個別選手強弱，可以在下方 buildTeams() 產生完 TEAMS 後手動覆蓋
+// 特定隊伍的 positionStrength（詳見檔案最後的覆蓋範例）。
 function buildTeams(list) {
-  return list.map((t) => ({ ...t, positionStrength: expandPositionStrength(t.name, t.baseStrength) }));
+  return list.map((t) => ({
+    ...t,
+    reputation: t.reputation ?? Math.round(t.baseStrength * 0.9),
+    positionStrength: expandPositionStrength(t.name, t.baseStrength),
+  }));
 }
 
 export const TEAMS = {
   LPL: buildTeams([
-    { name: "BLG",  baseStrength: 82, reputation: 70 },
-    { name: "TES",  baseStrength: 78, reputation: 68 },
-    { name: "JDG",  baseStrength: 85, reputation: 80 },
-    { name: "AL",   baseStrength: 74, reputation: 60 },
-    { name: "LNG",  baseStrength: 76, reputation: 62 },
+    { name: "BLG",  baseStrength: 95 },
+    { name: "AL",   baseStrength: 88 },
+    { name: "TES",  baseStrength: 85 },
+    { name: "JDG",  baseStrength: 83 },
+    { name: "NIP",  baseStrength: 79 },
+    { name: "WBG",  baseStrength: 78 },
+    { name: "IG",   baseStrength: 77 },
+    { name: "WE",   baseStrength: 77 },
+    { name: "LNG",  baseStrength: 70 },
+    { name: "TT",   baseStrength: 70 },
+    { name: "LGD",  baseStrength: 69 },
+    { name: "EDG",  baseStrength: 65 },
+    { name: "OMG",  baseStrength: 63 },
+    { name: "UP",   baseStrength: 63 },
   ]),
   LCK: buildTeams([
-    { name: "T1",     baseStrength: 88, reputation: 90 },
-    { name: "GEN.G",  baseStrength: 86, reputation: 82 },
-    { name: "HLE",    baseStrength: 79, reputation: 65 },
-    { name: "DK",     baseStrength: 77, reputation: 63 },
-    { name: "KT",     baseStrength: 73, reputation: 58 },
+    { name: "HLE",  baseStrength: 95 },
+    { name: "GEN",  baseStrength: 94 },
+    { name: "T1",   baseStrength: 92 },
+    { name: "DK",   baseStrength: 86 },
+    { name: "KT",   baseStrength: 84 },
+    { name: "BFX",  baseStrength: 74 },
+    { name: "KRX",  baseStrength: 69 },
+    { name: "NS",   baseStrength: 68 },
+    { name: "BRO",  baseStrength: 67 },
+    { name: "DNS",  baseStrength: 62 },
   ]),
   LEC: buildTeams([
-    { name: "G2",   baseStrength: 80, reputation: 75 },
-    { name: "FNC",  baseStrength: 74, reputation: 68 },
-    { name: "MDK",  baseStrength: 70, reputation: 55 },
-    { name: "KC",   baseStrength: 68, reputation: 50 },
+    { name: "G2",   baseStrength: 88 },
+    { name: "KC",   baseStrength: 85 },
+    { name: "MKOI", baseStrength: 76 },
+    { name: "VIT",  baseStrength: 73 },
+    { name: "GX",   baseStrength: 70 },
+    { name: "NAVI", baseStrength: 67 },
+    { name: "SHFT", baseStrength: 64 },
+    { name: "SK",   baseStrength: 63 },
+    { name: "TH",   baseStrength: 61 },
   ]),
   LTA: buildTeams([
-    { name: "100T", baseStrength: 70, reputation: 60 },
-    { name: "TL",   baseStrength: 72, reputation: 62 },
-    { name: "FLY",  baseStrength: 66, reputation: 50 },
+    { name: "LYON",  baseStrength: 85 },
+    { name: "FLY",   baseStrength: 81 },
+    { name: "TLAW",  baseStrength: 80 },
+    { name: "C9",    baseStrength: 77 },
+    { name: "SEN",   baseStrength: 69 },
+    { name: "SR",    baseStrength: 67 },
+    { name: "DSG",   baseStrength: 66 },
+    { name: "DIG",   baseStrength: 63 },
   ]),
   LCP: buildTeams([
-    { name: "CFO",  baseStrength: 62, reputation: 55 },
-    { name: "PSG",  baseStrength: 60, reputation: 48 },
-    { name: "GAM",  baseStrength: 63, reputation: 52 },
+    { name: "TSW",  baseStrength: 80 },
+    { name: "CFO",  baseStrength: 78 },
+    { name: "GAM",  baseStrength: 72 },
+    { name: "DCG",  baseStrength: 70 },
+    { name: "MVK",  baseStrength: 75 },
+    { name: "SHG",  baseStrength: 66 },
+    { name: "GZ",   baseStrength: 64 },
+    { name: "DFM",  baseStrength: 60 },
   ]),
 };
+
+// ---- 手動覆蓋範例：想精確指定特定隊伍的各路數值，取消註解後照格式改 ----
+// const t1 = TEAMS.LCK.find((t) => t.name === "T1");
+// if (t1) t1.positionStrength = { 上路: 90, 打野: 93, 中路: 91, ADC: 94, 輔助: 90 };
 
 // ---- 能力值 ----
 export const STAT_KEYS = ["反應", "意識", "抗壓", "溝通", "版本適應力", "領導"];
@@ -116,12 +157,26 @@ export const META_VERSIONS = {
 };
 
 // ---- 先天天賦池（開局抽選，稀有度分層）----
+// rarity 決定被抽到的相對權重：common=70 / rare=25 / legendary=5
+// 每個天賦的實際效果接在對應的邏輯檔案裡，見各檔案內的 talents.some(...) 判斷
 export const INNATE_TALENTS = [
-  { id: "glass_body",  name: "玻璃體質", rarity: "rare",   desc: "受傷機率提高，但巔峰期數值成長更快。" },
-  { id: "big_heart",   name: "大賽型選手", rarity: "rare",  desc: "國際賽事的抗壓加權額外提升。" },
-  { id: "fast_learner", name: "版本怪物", rarity: "legendary", desc: "版本更迭時幾乎不受過渡期debuff影響。" },
-  { id: "iron_wrist",  name: "鐵手腕",   rarity: "rare",   desc: "手部相關傷病機率大幅降低。" },
-  { id: "night_owl",   name: "夜貓子",   rarity: "common",  desc: "體能基礎值略低，但意識成長略快。" },
+  { id: "glass_body",        name: "玻璃體質",     rarity: "rare",      desc: "受傷機率提高，但英雄熟練度成長更快。" },
+  { id: "big_heart",         name: "大賽型選手",   rarity: "rare",      desc: "國際賽事的表現額外提升。" },
+  { id: "fast_learner",      name: "版本怪物",     rarity: "legendary", desc: "版本剛更迭時幾乎不受過渡期debuff影響。" },
+  { id: "iron_wrist",        name: "鐵手腕",       rarity: "rare",      desc: "手部相關傷病機率大幅降低。" },
+  { id: "night_owl",         name: "夜貓子",       rarity: "common",    desc: "體能基礎值略低，但意識成長略快。" },
+  { id: "internal_war_god",  name: "內戰幻神",     rarity: "rare",      desc: "賽區內對戰（例行賽/季後賽）時能力有額外加成。" },
+  { id: "sudden_gyro",       name: "突然的陀螺",   rarity: "rare",      desc: "國際賽（外戰）時能力會降低。" },
+  { id: "seven_will",        name: "7の意志",      rarity: "legendary", desc: "在BO5的決勝局，全屬性提升15%。傳說在7的指引下，你將無所不能。" },
+  { id: "conceptual_god",    name: "概念神",       rarity: "rare",      desc: "每場比賽開始時，隨機進入三種形態之一：天神下凡（能力大幅提升）、及時雨（容易送頭）、穩健（能力不變化）。" },
+  { id: "eternal_god",       name: "永遠滴神",     rarity: "rare",      desc: "逆風局（隊伍實力落後對手）容易carry比賽。" },
+  { id: "self_proclaimed_goat", name: "世一XX",    rarity: "rare",      desc: "自封為某個位置的世界第一。壓力持續偏高，但連勝時增幅會滾雪球提升，連敗時則會被輿論反噬、能力下降得更慘。" },
+  { id: "boy_kungfu",        name: "童子功",       rarity: "rare",      desc: "沒交女友時，獲得額外能力加成。" },
+  { id: "rift_inventor",     name: "峽谷發明家",   rarity: "rare",      desc: "練英雄特別快。" },
+  { id: "semifinal_enough",  name: "四強就算成功", rarity: "rare",      desc: "國際賽打進四強以上後，狀態會下滑。" },
+  { id: "never_overtime",    name: "永不加班",     rarity: "common",    desc: "BO5系列賽前期能力強，但場次越打越後面，能力會開始下降。" },
+  { id: "emotional_stability", name: "情緒穩定",   rarity: "common",    desc: "心態受事件影響的波動幅度較小，大好大壞都比較不明顯。" },
+  { id: "grinder",           name: "刻苦訓練生",   rarity: "common",    desc: "每個賽段能額外多獲得1點訓練點數。" },
 ];
 
 // ---- 角色狀態物件 factory ----
@@ -145,7 +200,7 @@ export function createCharacter({ name, position, region, teamName }) {
       "決斷風格": 0, "團隊取向": 0, "社交傾向": 0, "心境": 0,
       "自我評價": 0, "驕傲度": 0, "神經刀": 30,
     },
-    dynamic: { 心態: 50, 體能: 70 },
+    dynamic: { 心態: 50, 體能: 70, 壓力: 20 },
     fame: 10,
     talents: [],
     flags: {},
@@ -154,6 +209,7 @@ export function createCharacter({ name, position, region, teamName }) {
     injuries: [],
     chronicInjuries: [],
     rosterStatus: "rotation", // starter | rotation | bench
+    matchStreak: 0, // 持續連勝(正)/連敗(負)計數，跨賽段累積，給「世一XX」天賦用
     decline: { totalReactionLoss: 0 }, // 衰退累積量，用來觸發「手感不再」事件
     fitnessBoost: 0,                    // 訓練點數換來的暫時性衰退減免（消耗型）
     team: {
@@ -169,6 +225,7 @@ export function createCharacter({ name, position, region, teamName }) {
     seasonRecord: {
       year: 2026,
       currentMeta: "均衡版本",
+      metaChampions: [],
       stage1: { wins: 0, losses: 0, playoffResult: null },
       stage2: { wins: 0, losses: 0, playoffResult: null },
       stage3: { wins: 0, losses: 0, playoffResult: null },

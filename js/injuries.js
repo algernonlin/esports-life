@@ -11,9 +11,17 @@ const INJURY_POOL = [
 
 export function rollInjuryChance(character, runtimeRng) {
   const staminaFactor = (50 - character.dynamic["體能"]) / 100;
-  const prob = clamp(0.04 + staminaFactor * 0.15, 0.02, 0.35);
+  let prob = clamp(0.04 + staminaFactor * 0.15, 0.02, 0.35);
+  if (character.talents?.some((t) => t.id === "glass_body")) prob *= 1.3; // 玻璃體質：受傷機率提高
+
   if (runtimeRng() < prob) {
     const pick = INJURY_POOL[Math.floor(runtimeRng() * INJURY_POOL.length)];
+
+    // 鐵手腕：手部相關傷病有機率直接免疫
+    if (pick.id === "wrist_strain" && character.talents?.some((t) => t.id === "iron_wrist")) {
+      if (runtimeRng() < 0.5) return null;
+    }
+
     const severity = 1 + Math.floor(runtimeRng() * 3);
     character.injuries.push({
       id: pick.id, name: pick.name, severity,

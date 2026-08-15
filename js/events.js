@@ -18,7 +18,7 @@ export const EVENTS = [
     cooldown: 2,
     conditions: [{ fame_min: 20 }],
     title: "被實況主酸爆",
-    text: "知名球評在直播上逐幀分析你這場的操作，評價「濫到流湯」，留言區瞬間洗版。",
+    text: "知名球評在直播上逐幀分析你這場的操作，評價「爛到流湯」，留言區瞬間洗版。",
     choices: [
       {
         label: "不理會，專心練習",
@@ -41,16 +41,17 @@ export const EVENTS = [
     cooldown: 3,
     conditions: [{ fame_min: 15 }],
     title: "商業聚會邀約",
-    text: "贊助商私下邀你去唱K放鬆，順便交流交流，去不去？",
+    text: "贊助商私下邀你去唱商K放鬆，順便交流交流，去不去？",
     choices: [
       {
         label: "答應赴約",
         outcomes: [
-          { probability: 0.75, resultText: "聚會氣氛不錯，你放鬆了不少，心態明顯變好。", effects: [
+          { probability: 0.5, resultText: "聚會氣氛不錯，認識了不少妹子，你放鬆了不少，心態明顯變好。", effects: [
             { type: "dynamic_delta", stat: "心態", value: 6 },
+            { type: "dynamic_delta", stat: "壓力", value: -10 },
             { type: "fame_delta", value: 3 },
           ]},
-          { probability: 0.25, resultText: "有人把你唱歌的畫面PO上網，媒體大做文章。", effects: [
+          { probability: 0.5, resultText: "有人把你去商k的畫面PO上小紅書，輿論一片譁然。", effects: [
             { type: "team_delta", stat: "reputation", value: -15 },
             { type: "flag_set", flag: "禁賽兩場" },
             { type: "stat_delta", stat: "抗壓", value: -3 },
@@ -205,9 +206,6 @@ export const EVENTS = [
     ],
   },
 
-  // ============================================================
-  // 以下為新增事件（依你提供的清單整理）
-  // ============================================================
 
   // ---- 1 + 3：粉絲告白 → 懷孕抉擇（要求墮胎）→ 有機率外流 ----
   {
@@ -262,7 +260,7 @@ export const EVENTS = [
     cooldown: 999,
     conditions: [{ OR: [{ flag: "曾要求墮胎" }, { flag: "有秘密女友" }] }, { fame_min: 35 }],
     title: "私密對話外流",
-    text: "你們之間的私密對話截圖被貼到匿名爆料板，內容看起來對你相當不利，話題迅速發酵。",
+    text: "你們之間的私密對話截圖-我射四次，你高潮幾次? 被貼到「最強聯盟」Discord，內容直接坐實了要求墮胎的指控，話題瞬間炸開，罵聲一片。",
     choices: [
       {
         label: "公開發聲道歉",
@@ -298,7 +296,7 @@ export const EVENTS = [
     cooldown: 999,
     conditions: [{ OR: [{ flag: "有秘密女友" }, { flag: "有女友" }] }, { personality: "決斷風格", min: 40 }],
     title: "失控的爭執",
-    text: "一次爭吵徹底升溫，情緒失控下你做了讓自己事後懊悔的事，她受到了傷害。",
+    text: "你們大吵一架，你情緒完全失控動手打了她，事後你自己也嚇到。",
     choices: [
       {
         label: "坦承錯誤，積極挽回",
@@ -311,7 +309,7 @@ export const EVENTS = [
         label: "威脅對方別聲張出去",
         outcomes: [
           { probability: 0.5, resultText: "這件事暫時被壓下來了。", effects: [{ type: "dynamic_delta", stat: "心態", value: -3 }] },
-          { probability: 0.5, resultText: "事情還是被抖了出去，輿論一片撻伐。", effects: [
+          { probability: 0.5, resultText: "事情還是被「最強聯盟」起底爆出來，輿論一片撻伐，要求你退賽。", effects: [
             { type: "fame_delta", value: -35 }, { type: "team_delta", stat: "reputation", value: -20 },
             { type: "flag_set", flag: "家暴爭議" },
           ]},
@@ -469,7 +467,14 @@ export const EVENTS = [
       },
       {
         label: "不當一回事",
-        outcomes: [{ effects: [{ type: "fame_delta", value: -6 }, { type: "personality_delta", stat: "驕傲度", value: 3 }] }],
+        outcomes: [
+          { probability: 0.3, effects: [{ type: "fame_delta", value: -6 }, { type: "personality_delta", stat: "驕傲度", value: 3 }] },
+          { probability: 0.7, resultText: "隊友把你落跑洗澡的錄影PO上網，被瘋傳嘲笑，能力值也跟著崩了一下。", effects: [
+            { type: "fame_delta", value: -18 },
+            { type: "stat_delta", stat: "抗壓", value: -3 },
+            { type: "dynamic_delta", stat: "心態", value: -6 },
+          ]},
+        ],
       },
     ],
   },
@@ -498,15 +503,15 @@ export const EVENTS = [
     ],
   },
 
-  // ---- 9：嫖娼 / 外遇（KTV已有另一則事件） ----
+  // ---- 9：嫖娼 / 外遇 ----
   {
     id: "event_paid_companionship",
     category: "醜聞",
     weight: 1,
     cooldown: 999,
     conditions: [{ fame_min: 45 }],
-    title: "私人招待所的邀約",
-    text: "朋友帶你去一間「特別的」招待所應酬，介紹了付費陪伴服務。",
+    title: "嫖娼邀約",
+    text: "應酬結束後，朋友問你要不要一起去嫖，順便介紹了「服務」。",
     choices: [
       {
         label: "婉拒離開",
@@ -516,7 +521,7 @@ export const EVENTS = [
         label: "留下來",
         outcomes: [
           { probability: 0.7, effects: [{ type: "dynamic_delta", stat: "心態", value: 4 }] },
-          { probability: 0.3, resultText: "消費紀錄被起底爆料，形象重創。", effects: [
+          { probability: 0.3, resultText: "嫖娼被「最強聯盟」起底爆料，全網公審，形象重創。", effects: [
             { type: "fame_delta", value: -40 }, { type: "team_delta", stat: "reputation", value: -20 },
           ]},
         ],
@@ -540,7 +545,7 @@ export const EVENTS = [
         label: "順勢發展",
         outcomes: [
           { probability: 0.55, effects: [{ type: "dynamic_delta", stat: "心態", value: 5 }, { type: "flag_set", flag: "外遇中" }] },
-          { probability: 0.45, resultText: "行蹤被拍到，外遇消息瞬間登上熱搜。", effects: [
+          { probability: 0.45, resultText: "行蹤被拍到，「最強聯盟」直接開串公審，外遇消息瞬間登上熱搜。", effects: [
             { type: "fame_delta", value: -45 }, { type: "team_delta", stat: "reputation", value: -20 },
           ]},
         ],
@@ -556,7 +561,7 @@ export const EVENTS = [
     cooldown: 3,
     conditions: [{ fame_min: 25 }],
     title: "選手通道的插曲",
-    text: "賽後選手通道，你因為心情不好沒有跟等候的粉絲擊掌，被聯盟認定違反選手規範。",
+    text: "賽後選手通道，你因為心情不好沒有跟等候的粉絲擊掌，被聯盟認定違反選手規範罰了15萬。",
     choices: [
       {
         label: "接受裁罰",
@@ -577,7 +582,7 @@ export const EVENTS = [
     cooldown: 2,
     conditions: [{ OR: [{ personality: "驕傲度", min: 45 }, { personality: "決斷風格", min: 45 }] }],
     title: "已讀不回引爆的怒火",
-    text: "私訊對方遲遲沒有即時回覆，你越想越氣，情緒失控傳了一則相當不客氣的辱罵訊息。",
+    text: "私訊對方遲遲沒有即時回覆，你越想越氣，情緒失控傳了一句「你這乳牛」洩憤。",
     choices: [
       {
         label: "訊息傳出後馬上撤回道歉",
@@ -587,7 +592,7 @@ export const EVENTS = [
         label: "不當一回事",
         outcomes: [
           { probability: 0.6, effects: [] },
-          { probability: 0.4, resultText: "對話截圖被公開流出，網路上罵聲一片。", effects: [
+          { probability: 0.4, resultText: "對話截圖被貼上「最強聯盟」，網路上罵聲一片，人設崩壞。", effects: [
             { type: "fame_delta", value: -15 }, { type: "team_delta", stat: "reputation", value: -8 },
           ]},
         ],
@@ -632,10 +637,10 @@ export const EVENTS = [
     cooldown: 999,
     conditions: [{ fame_min: 10 }],
     title: "見面驚魂",
-    text: "你在網路上聊了很久、互有好感的對象，實際碰面後發現跟你原本想像的完全不一樣，你一時難以接受，心態受到不小衝擊。",
+    text: "你在網路上聊了很久、互有好感的對象，實際碰面後發現性別跟你原本想像的完全不一樣，你一時難以接受，心態受到不小衝擊。",
     choices: [
       {
-        label: "調整心情，坦然面對",
+        label: "來都來了",
         outcomes: [{ effects: [{ type: "personality_delta", stat: "自我評價", value: 2 }] }],
       },
       {
@@ -657,7 +662,7 @@ export const EVENTS = [
     choices: [
       {
         label: "承認是自己",
-        outcomes: [{ effects: [{ type: "team_delta", stat: "chemistry", value: 5 }, { type: "fame_delta", value: 1 }] }],
+        outcomes: [{ effects: [{ type: "team_delta", stat: "chemistry", value: 5 }, { type: "fame_delta", value: 1 }, { type: "dynamic_delta", stat: "壓力", value: -5 }] }],
       },
       {
         label: "死不承認",
@@ -674,7 +679,7 @@ export const EVENTS = [
     cooldown: 999,
     conditions: [{ fame_min: 40 }],
     title: "投資風波",
-    text: "你私下投資的拉麵店被爆出販賣過期食材，消費者上網公審，你的名字也被一起提起。",
+    text: "你私下投資的拉麵店被爆出販賣過期泡麵，消費者上網公審，你的名字也被一起提起。",
     choices: [
       {
         label: "公開道歉並下架商品",
@@ -714,7 +719,7 @@ export const EVENTS = [
     cooldown: 999,
     conditions: [{ fame_min: 30 }],
     title: "微整型",
-    text: "在經紀公司建議下，你去割了雙眼皮，鏡頭前的形象更上相了。",
+    text: "在網上看到有人批評你的顏質，你去割了雙眼皮，鏡頭前的形象更上相了。",
     choices: [
       {
         label: "順其自然",
@@ -752,7 +757,7 @@ export const EVENTS = [
     cooldown: 999,
     conditions: [{ fame_min: 30 }],
     title: "傳錯群組",
-    text: "你在私人對話裡傳了一則不太恰當的訊息，一時手滑傳進了公開的隊伍群組，截圖立刻在群組間流傳開來。",
+    text: "你滑IG看到一張照片，手滑打了一句「幹這人真的很大，但好像有點病」的評論訊息，結果傳錯傳到了當事人私訊，當事人立馬截圖公審。",
     choices: [
       {
         label: "馬上撤回並道歉",
@@ -789,6 +794,176 @@ export const EVENTS = [
           { type: "flag_set", flag: "已回應衰退" },
           { type: "flag_set", flag: "堅持巔峰打法" },
           { type: "dynamic_delta", stat: "心態", value: 3 },
+        ]}],
+      },
+    ],
+  },
+
+  // ---- 23：連續沒有版本英雄，被隊友嗆 ----
+  {
+    id: "event_no_meta_champ_scolded",
+    category: "團隊衝突",
+    weight: 2,
+    cooldown: 2,
+    conditions: [{ path: "team.chemistry", max: 45 }],
+    title: "隊友的怒火",
+    text: "隊友在覆盤時敲椅子開罵:「一個賽季練個版本英雄這麼難嗎？」",
+    choices: [
+      {
+        label: "認了，加緊練版本英雄",
+        outcomes: [{ effects: [{ type: "team_delta", stat: "chemistry", value: -3 }, { type: "dynamic_delta", stat: "心態", value: -3 }] }],
+      },
+      {
+        label: "反嗆回去，憑什麼說我",
+        outcomes: [{ effects: [{ type: "team_delta", stat: "chemistry", value: -10 }, { type: "personality_delta", stat: "驕傲度", value: 4 }] }],
+      },
+    ],
+  },
+
+  // ---- 日常向事件----
+  {
+    id: "event_extra_practice",
+    category: "日常",
+    weight: 4,
+    cooldown: 2,
+    conditions: [],
+    title: "加練",
+    text: "訓練結束後，你留下來多練了一小時個人操作。",
+    choices: [
+      {
+        label: "紮實地練基本功",
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "反應", value: 2 }, { type: "dynamic_delta", stat: "體能", value: -3 }] }],
+      },
+      {
+        label: "算了，早點回去休息",
+        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "體能", value: 4 }] }],
+      },
+    ],
+  },
+  {
+    id: "event_team_review",
+    category: "日常",
+    weight: 4,
+    cooldown: 2,
+    conditions: [],
+    title: "戰術覆盤",
+    text: "教練找你一起看之前的比賽錄影，討論這幾波團戰的決策。",
+    choices: [
+      {
+        label: "認真提出自己的想法",
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "意識", value: 2 }, { type: "team_delta", stat: "favor", value: 3 }] }],
+      },
+      {
+        label: "隨便應付過去",
+        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "體能", value: 2 }] }],
+      },
+    ],
+  },
+  {
+    id: "event_shoutcaster_chat",
+    category: "日常",
+    weight: 3,
+    cooldown: 2,
+    conditions: [{ fame_min: 15 }],
+    title: "賽評的閒聊",
+    text: "賽前等待區，一位資深賽評找你聊了幾句，問你對這個版本的看法。",
+    choices: [
+      {
+        label: "認真分析給對方聽",
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "版本適應力", value: 2 }, { type: "fame_delta", value: 2 }] }],
+      },
+      {
+        label: "隨口敷衍幾句",
+        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "心態", value: 1 }] }],
+      },
+    ],
+  },
+  {
+    id: "event_teammate_bonding",
+    category: "日常",
+    weight: 3,
+    cooldown: 2,
+    conditions: [],
+    title: "隊友揪團",
+    text: "隊友下班後揪你一起吃飯打牌，放鬆一下。",
+    choices: [
+      {
+        label: "一起去，順便聊聊戰術",
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "溝通", value: 2 }, { type: "team_delta", stat: "chemistry", value: 4 }] }],
+      },
+      {
+        label: "婉拒，自己在家休息",
+        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "體能", value: 3 }, { type: "team_delta", stat: "chemistry", value: -1 }] }],
+      },
+    ],
+  },
+  {
+    id: "event_call_shots",
+    category: "日常",
+    weight: 3,
+    cooldown: 2,
+    conditions: [],
+    title: "指揮權",
+    text: "這場練習賽隊友把指揮權交給你，讓你來喊團戰時機。",
+    choices: [
+      {
+        label: "大膽指揮，扛起責任",
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "領導", value: 2 }, { type: "dynamic_delta", stat: "壓力", value: 3 }] }],
+      },
+      {
+        label: "交還給比較有經驗的隊友",
+        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "壓力", value: -2 }] }],
+      },
+    ],
+  },
+  {
+    id: "event_new_gear",
+    category: "日常",
+    weight: 3,
+    cooldown: 3,
+    conditions: [],
+    title: "新設備",
+    text: "贊助商送來一批新的滑鼠鍵盤，你試用了一下手感。",
+    choices: [
+      {
+        label: "花時間慢慢適應新設備",
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "反應", value: 1 }, { type: "dynamic_delta", stat: "心態", value: 2 }] }],
+      },
+      {
+        label: "繼續用習慣的舊設備",
+        outcomes: [{ effects: [] }],
+      },
+    ],
+  },
+
+  // ---- 懷孕抉擇的後續報應：如果當初選了要求墮胎，有機率被這個事件找上 ----
+  {
+    id: "event_baby_spirit_gate",
+    category: "感情",
+    weight: 1,
+    cooldown: 999,
+    conditions: [{ flag: "曾要求墮胎" }, { flag_not: "已渡化嬰靈" }],
+    title: "嬰靈之門",
+    text: "最近夜裡總是睡不安穩，你總覺得有什麼東西在盯著你，教練都說你這陣子練習心不在焉、手感掉得離譜。",
+    choices: [
+      {
+        label: "找廟裡做法事超度",
+        outcomes: [{ resultText: "花了一筆錢做完法事，心裡的陰影總算淡了一些。", effects: [
+          { type: "stat_delta", stat: "反應", value: -6 },
+          { type: "stat_delta", stat: "意識", value: -6 },
+          { type: "stat_delta", stat: "抗壓", value: -4 },
+          { type: "dynamic_delta", stat: "心態", value: -10 },
+          { type: "career_counter_delta", counter: "money", value: -100 },
+          { type: "flag_set", flag: "已渡化嬰靈" },
+        ]}],
+      },
+      {
+        label: "不理會，硬撐過去",
+        outcomes: [{ resultText: "你選擇硬撐，但這股陰影似乎還沒有真正離開。", effects: [
+          { type: "stat_delta", stat: "反應", value: -10 },
+          { type: "stat_delta", stat: "意識", value: -10 },
+          { type: "stat_delta", stat: "抗壓", value: -8 },
+          { type: "dynamic_delta", stat: "心態", value: -18 },
         ]}],
       },
     ],

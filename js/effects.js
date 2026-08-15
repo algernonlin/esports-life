@@ -28,7 +28,12 @@ export function applyEffects(character, effects = [], log = []) {
         break;
       }
       case "dynamic_delta": {
-        character.dynamic[eff.stat] = clamp((character.dynamic[eff.stat] ?? 50) + eff.value, 0, 100);
+        let delta = eff.value;
+        // 情緒穩定：只針對「心態」的波動幅度縮小，大好大壞都比較不明顯
+        if (eff.stat === "心態" && character.talents?.some((t) => t.id === "emotional_stability")) {
+          delta *= 0.8;
+        }
+        character.dynamic[eff.stat] = clamp((character.dynamic[eff.stat] ?? 50) + delta, 0, 100);
         break;
       }
       case "fame_delta": {

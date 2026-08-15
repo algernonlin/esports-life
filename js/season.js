@@ -4,7 +4,7 @@
 import { SEASON_FLOW, META_VERSIONS, TEAMS } from "./state.js";
 import { simulateMatch } from "./match.js";
 import { clamp, randomRange, pickWeighted } from "./rng.js";
-import { decayChampionProficiency } from "./champions.js";
+import { decayChampionProficiency, rollMetaChampions } from "./champions.js";
 
 // -------------------------------------------------------------
 // 國際賽資格判定（示範用簡化規則，可依你研究的真實名額調整）
@@ -42,11 +42,17 @@ export function evaluateRosterStatus(character) {
 
 // -------------------------------------------------------------
 // 例行賽 / 季後賽模擬（批次：一個賽段模擬 N 場，抽象化賽程）
+// 方案A：批次跑完後，把過程中的最長連勝/連敗摘要出來，
+// 連勝/連敗每滿3場會影響隊伍化學反應（士氣），並回傳給UI顯示摘要文字
 // -------------------------------------------------------------
 export function simulateRegularStage(character, runtimeRng, gamesCount = 18) {
   const results = [];
   const regionTeams = TEAMS[character.meta.region] ?? [];
   character.rosterStatus = evaluateRosterStatus(character);
+
+  let currentStreak = 0; // 正=連勝中，負=連敗中
+  let longestWinStreak = 0;
+  let longestLossStreak = 0;
 
   for (let i = 0; i < gamesCount; i++) {
     if (character.rosterStatus === "bench" && runtimeRng() > 0.15) {
@@ -62,24 +68,40 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = 18) {
     const result = simulateMatch(character, oppStrength, { isMajorEvent: false }, runtimeRng);
     results.push({ played: true, ...result, opponentName: opponent?.name ?? "未知隊伍" });
 
-    if (result.win) character.careerCounters.wins++; else character.careerCounters.losses++;
+    if (result.win) {
+      character.careerCounters.wins++;
+      currentStreak = currentStreak > 0 ? currentStreak + 1 : 1;
+      longestWinStreak = Math.max(longestWinStreak, currentStreak);
+    } else {
+      character.careerCounters.losses++;
+      currentStreak = currentStreak < 0 ? currentStreak - 1 : -1;
+      longestLossStreak = Math.max(longestLossStreak, -currentStreak);
+    }
     character.careerCounters.kills += result.kills;
     character.careerCounters.deaths += result.deaths;
     character.careerCounters.assists += result.assists;
     if (result.carryButLose) character.flags["本場carry但輸"] = true;
   }
 
+  // 連勝/連敗每滿3場，化學反應（士氣）對應調整
+  const chemistryDelta = Math.floor(longestWinStreak / 3) * 3 - Math.floor(longestLossStreak / 3) * 3;
+  character.team.chemistry = clamp(character.team.chemistry + chemistryDelta, 0, 100);
+
   const wins = results.filter((r) => r.played && r.win).length;
   const losses = results.filter((r) => r.played && !r.win).length;
-  return { results, wins, losses };
+  return { results, wins, losses, longestWinStreak, longestLossStreak, chemistryDelta };
 }
 
-export function simulatePlayoff(character, runtimeRng) {
-  const isMajor = true;
+export function simulatePlayoff(character, runtimeRng, { isInternational = false } = {}) {
   let wins = 0, losses = 0;
   for (let i = 0; i < 5; i++) {
+    const isDecidingGame = wins === 2 && losses === 2; // BO5打到2:2，第5場就是決勝局
     const oppStrength = character.team.baseStrength + randomRange(runtimeRng, -6, 10);
-    const result = simulateMatch(character, oppStrength, { isMajorEvent: isMajor }, runtimeRng);
+    const result = simulateMatch(
+      character, oppStrength,
+      { isMajorEvent: true, isInternational, isDecidingGame, seriesGameIndex: i },
+      runtimeRng
+    );
     result.win ? wins++ : losses++;
     if (wins >= 3 || losses >= 3) break;
   }
@@ -89,11 +111,13 @@ export function simulatePlayoff(character, runtimeRng) {
 }
 
 // -------------------------------------------------------------
-// 版本更迭：每個例行賽段開始重抽
+// 版本更迭：每個例行賽段開始重抽，同時重抽本賽段的版本英雄清單
 // -------------------------------------------------------------
 export function rollMetaVersion(character, runtimeRng) {
   const keys = Object.keys(META_VERSIONS);
   character.seasonRecord.currentMeta = keys[Math.floor(runtimeRng() * keys.length)];
+  character.seasonRecord.metaChampions = rollMetaChampions(runtimeRng);
+  character.flags["metaJustChanged"] = true; // 給「版本怪物」天賦判斷用，這個賽段的比賽都算剛換版本
 }
 
 // -------------------------------------------------------------
@@ -179,7 +203,9 @@ const TRAINING_POINTS_BY_STAGE_TYPE = {
 };
 
 export function grantTrainingPoints(character, stageType) {
-  character.trainingPoints += TRAINING_POINTS_BY_STAGE_TYPE[stageType] ?? 0;
+  let points = TRAINING_POINTS_BY_STAGE_TYPE[stageType] ?? 0;
+  if (points > 0 && character.talents?.some((t) => t.id === "grinder")) points += 1; // 刻苦訓練生
+  character.trainingPoints += points;
 }
 
 export function tickChampionDecay(character, runtimeRng) {
@@ -219,6 +245,17 @@ export function evaluateInvitations(character, runtimeRng) {
 }
 
 // -------------------------------------------------------------
+// 合約續約判定：依戰績表現（跟隊伍所需水準比）跟好感度，
+// 判斷隊伍願不願意開新約
+// -------------------------------------------------------------
+export function evaluateContractRenewal(character) {
+  const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
+  const performanceOk = statAvg >= character.team.baseStrength * 0.75;
+  const favorOk = character.team.favor >= 40;
+  return performanceOk && favorOk;
+}
+
+// -------------------------------------------------------------
 // 賽段推進（跳過沒資格的國際賽）
 // -------------------------------------------------------------
 export function advanceStage(character) {
@@ -234,6 +271,7 @@ export function advanceStage(character) {
       character.seasonRecord = {
         year: character.meta.careerYear,
         currentMeta: character.seasonRecord.currentMeta,
+        metaChampions: character.seasonRecord.metaChampions ?? [],
         stage1: { wins: 0, losses: 0, playoffResult: null },
         stage2: { wins: 0, losses: 0, playoffResult: null },
         stage3: { wins: 0, losses: 0, playoffResult: null },
