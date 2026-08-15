@@ -155,8 +155,14 @@
         </div>
         <div class="panel small-panel">
           <h3 class="section-title small">生涯數據</h3>
-          <div class="mono">知名度 <span id="dash-fame">—</span></div>
-          <div class="mono" id="dash-counters">—</div>
+          <div class="team-stat-list">
+            <div class="team-stat"><span>知名度</span><span class="mono" id="dash-fame">—</span></div>
+            <div class="team-stat"><span>戰績</span><span class="mono" id="dash-record">—</span></div>
+            <div class="team-stat"><span>K / D / A</span><span class="mono" id="dash-kda">—</span></div>
+            <div class="team-stat"><span>場均 K/D/A</span><span class="mono" id="dash-avg">—</span></div>
+            <div class="team-stat"><span>MVP次數</span><span class="mono" id="dash-mvp">—</span></div>
+            <div class="team-stat"><span>生涯薪資(萬)</span><span class="mono" id="dash-salary">—</span></div>
+          </div>
         </div>
       </div>
 
@@ -176,6 +182,14 @@
             <div class="train-controls">
               <button id="btn-relax" class="btn-ghost" style="flex:1;">花1點紓壓（降低壓力值）</button>
             </div>
+
+            <h4 class="core-train-title">加強項目（只能練這三項，其餘靠事件）</h4>
+            <div class="train-controls">
+              <button class="btn-core-train" data-stat="反應">加練個人操作</button>
+              <button class="btn-core-train" data-stat="意識">和教練覆盤</button>
+              <button class="btn-core-train" data-stat="版本適應力">研究版本情報</button>
+            </div>
+
             <div id="champion-list" class="champion-list"></div>
           </div>
 
@@ -187,13 +201,20 @@
 
         <aside class="dash-col-side">
           <div class="panel">
-            <h3 class="section-title small">本賽段版本英雄</h3>
-            <div id="meta-champion-list" class="meta-champion-list"></div>
+            <h3 class="section-title small">隊伍平均戰力</h3>
+            <div class="team-avg-strength">
+              <span class="team-avg-value mono" id="team-avg-strength">—</span>
+            </div>
           </div>
 
           <div class="panel">
-            <h3 class="section-title small">隊伍五路戰力</h3>
-            <div id="team-position-strength" class="stat-list"></div>
+            <h3 class="section-title small">生涯榮譽</h3>
+            <div id="honors-list" class="team-stat-list"></div>
+          </div>
+
+          <div class="panel">
+            <h3 class="section-title small">本賽段版本英雄</h3>
+            <div id="meta-champion-list" class="meta-champion-list"></div>
           </div>
         </aside>
       </div>
@@ -221,12 +242,19 @@
 
         <div class="share-stat-grid">
           <div class="share-stat"><span class="share-stat-label">生涯年資</span><span class="share-stat-value mono" id="stat-years">—</span></div>
-          <div class="share-stat"><span class="share-stat-label">累積戰績</span><span class="share-stat-value mono" id="stat-record">—</span></div>
-          <div class="share-stat"><span class="share-stat-label">生涯 K/D/A</span><span class="share-stat-value mono" id="stat-kda">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">出場次數</span><span class="share-stat-value mono" id="stat-appearances">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">勝場數</span><span class="share-stat-value mono" id="stat-wins">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">KDA比率</span><span class="share-stat-value mono" id="stat-kda">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">MVP次數</span><span class="share-stat-value mono" id="stat-mvps">—</span></div>
           <div class="share-stat"><span class="share-stat-label">世界賽次數</span><span class="share-stat-value mono" id="stat-worlds">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">擊殺 / 場均</span><span class="share-stat-value mono" id="stat-kills">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">助攻 / 場均</span><span class="share-stat-value mono" id="stat-assists">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">死亡 / 場均</span><span class="share-stat-value mono" id="stat-deaths">—</span></div>
           <div class="share-stat"><span class="share-stat-label">知名度</span><span class="share-stat-value mono" id="stat-fame">—</span></div>
-          <div class="share-stat"><span class="share-stat-label">慢性傷病</span><span class="share-stat-value mono" id="stat-injuries">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">生涯薪資(萬)</span><span class="share-stat-value mono" id="stat-salary">—</span></div>
         </div>
+
+        <div class="share-honors" id="share-honors"></div>
 
         <div class="share-footer">YAKYULIFE-STYLE ESPORTS SIM · yourdomain.github.io</div>
       </div>

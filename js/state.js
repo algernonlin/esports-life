@@ -13,6 +13,16 @@ export const POSITION_SPECIALTY = {
   "輔助": "視野控制",
 };
 
+// 賽區薪資市場倍率：反映真實世界薪資水準落差（市場規模跟資本，不是純競技強度）
+// LPL資本最雄厚、LCK/LTA(LCS)其次、LEC基準、LCP市場最小
+export const REGION_SALARY_MULTIPLIER = {
+  LPL: 1.4,
+  LCK: 1.1,
+  LTA: 1.1,
+  LEC: 1.0,
+  LCP: 0.6,
+};
+
 // 用隊名當種子，穩定地把單一 baseStrength 展開成五路數值（demo佔位用）
 // 你研究真實數據後，直接把每隊的 positionStrength 覆蓋成手填的真實值即可
 function expandPositionStrength(teamName, baseStrength) {
@@ -37,9 +47,10 @@ export const REGIONS = ["LPL", "LCK", "LEC", "LTA", "LCP"];
 // reputation 用 baseStrength*0.9 粗略估計媒體評價的初始值，之後遊戲過程會自動連動戰績調整。
 // 想精確反映個別選手強弱，可以在下方 buildTeams() 產生完 TEAMS 後手動覆蓋
 // 特定隊伍的 positionStrength（詳見檔案最後的覆蓋範例）。
-function buildTeams(list) {
+function buildTeams(list, regionName) {
   return list.map((t) => ({
     ...t,
+    region: regionName,
     reputation: t.reputation ?? Math.round(t.baseStrength * 0.9),
     positionStrength: expandPositionStrength(t.name, t.baseStrength),
   }));
@@ -61,7 +72,7 @@ export const TEAMS = {
     { name: "EDG",  baseStrength: 65 },
     { name: "OMG",  baseStrength: 63 },
     { name: "UP",   baseStrength: 63 },
-  ]),
+  ], "LPL"),
   LCK: buildTeams([
     { name: "HLE",  baseStrength: 95 },
     { name: "GEN",  baseStrength: 94 },
@@ -73,7 +84,7 @@ export const TEAMS = {
     { name: "NS",   baseStrength: 68 },
     { name: "BRO",  baseStrength: 67 },
     { name: "DNS",  baseStrength: 62 },
-  ]),
+  ], "LCK"),
   LEC: buildTeams([
     { name: "G2",   baseStrength: 88 },
     { name: "KC",   baseStrength: 85 },
@@ -84,7 +95,7 @@ export const TEAMS = {
     { name: "SHFT", baseStrength: 64 },
     { name: "SK",   baseStrength: 63 },
     { name: "TH",   baseStrength: 61 },
-  ]),
+  ], "LEC"),
   LTA: buildTeams([
     { name: "LYON",  baseStrength: 85 },
     { name: "FLY",   baseStrength: 81 },
@@ -94,7 +105,7 @@ export const TEAMS = {
     { name: "SR",    baseStrength: 67 },
     { name: "DSG",   baseStrength: 66 },
     { name: "DIG",   baseStrength: 63 },
-  ]),
+  ], "LTA"),
   LCP: buildTeams([
     { name: "TSW",  baseStrength: 80 },
     { name: "CFO",  baseStrength: 78 },
@@ -104,8 +115,12 @@ export const TEAMS = {
     { name: "SHG",  baseStrength: 66 },
     { name: "GZ",   baseStrength: 64 },
     { name: "DFM",  baseStrength: 60 },
-  ]),
+  ], "LCP"),
 };
+
+// 跨賽區用的攤平清單：合約到期後的自由市場、緊急轉會都可以搜尋全部賽區的隊伍，
+// 不侷限在開局選的那個賽區（開局選賽區純粹是敘事偏好/難度選擇，之後能不能站上頂級賽區看實力）
+export const ALL_TEAMS = Object.values(TEAMS).flat();
 
 // ---- 手動覆蓋範例：想精確指定特定隊伍的各路數值，取消註解後照格式改 ----
 // const t1 = TEAMS.LCK.find((t) => t.name === "T1");
@@ -211,6 +226,7 @@ export function createCharacter({ name, position, region, teamName }) {
     rosterStatus: "rotation", // starter | rotation | bench
     matchStreak: 0, // 持續連勝(正)/連敗(負)計數，跨賽段累積，給「世一XX」天賦用
     decline: { totalReactionLoss: 0 }, // 衰退累積量，用來觸發「手感不再」事件
+    yearRecord: { stageMvpCount: 0 },  // 年度累積：這年三個賽段裡拿了幾次「賽段MVP」，年底結算年度榮譽用
     fitnessBoost: 0,                    // 訓練點數換來的暫時性衰退減免（消耗型）
     team: {
       name: teamName,
@@ -220,8 +236,19 @@ export function createCharacter({ name, position, region, teamName }) {
       reputation: 50,
       favor: 50,
       contractYears: 2,
+      contractSalary: 0, // 簽約當下鎖定的年薪(萬)，換約才會重新算
     },
-    careerCounters: { kills: 0, assists: 0, deaths: 0, wins: 0, losses: 0, mvps: 0, worldsAppearances: 0 },
+    careerCounters: {
+      kills: 0, assists: 0, deaths: 0, wins: 0, losses: 0, mvps: 0, worldsAppearances: 0, money: 0,
+      // 生涯榮譽
+      domesticTitles: 0, domesticRunnerUps: 0,       // 賽區冠軍/亞軍（例行賽季後賽）
+      internationalTitles: 0, internationalRunnerUps: 0, // 國際賽冠軍/亞軍
+      fmvps: 0,                                       // 決賽FMVP（只有奪冠才可能拿到）
+      regularSeasonMVPs: 0,                            // 該賽段例行賽MVP（賽段級，累積次數）
+      bestXI: 0,                                       // 該賽段最佳陣容入選次數
+      yearEndBestPosition: 0,                          // 年度賽區最佳（該位置）
+      yearEndMVP: 0,                                    // 年度常規賽MVP（一年三個賽段都拿MVP才算）
+    },
     seasonRecord: {
       year: 2026,
       currentMeta: "均衡版本",

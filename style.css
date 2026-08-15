@@ -8,8 +8,8 @@
   --bg-panel:      #151517;
   --bg-panel-alt:  #1b1b1e;
   --bg-inset:      #0f0f11;
-  --border:        #2c2426;
-  --border-soft:   #211c1d;
+  --border:        #3a2224;
+  --border-soft:   #2a1c1e;
 
   --text-primary:  #f2eeee;
   --text-secondary:#9c9598;
@@ -91,7 +91,7 @@ body {
 }
 .panel + .panel { margin-top: 16px; }
 .small-panel { flex: 1; }
-.panel-row { display: flex; gap: 12px; margin-bottom: 12px; }
+.panel-row { display: flex; gap: 16px; margin-bottom: 16px; }
 
 .section-title {
   font-family: var(--font-display);
@@ -329,10 +329,35 @@ body {
 .team-stat { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-secondary); }
 .team-stat span:last-child { color: var(--text-primary); font-family: var(--font-mono); }
 
-.btn-advance { margin: 20px 0 24px; }
+.btn-advance {
+  margin: 0 0 16px;
+  padding: 14px 22px;
+  font-size: 16px;
+  border-radius: var(--radius-md);
+}
 
 .train-controls { display: flex; gap: 8px; margin-bottom: 14px; }
 .train-controls select { flex: 1; }
+.core-train-title {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em;
+  color: var(--text-faint); margin: 4px 0 8px; text-transform: uppercase;
+}
+.btn-core-train {
+  flex: 1;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-core-train:hover { border-color: var(--accent-warm); color: var(--accent-warm); }
+.team-avg-strength { display: flex; align-items: baseline; gap: 8px; }
+.team-avg-value { font-family: var(--font-display); font-size: 42px; font-weight: 700; color: var(--accent); line-height: 1; }
+
 .champion-list { display: flex; flex-direction: column; gap: 10px; }
 .meta-champion-list { display: flex; flex-direction: column; gap: 14px; }
 .meta-champ-group { margin-bottom: 0; }
@@ -434,6 +459,12 @@ body {
   font-size: 10px;
   color: var(--text-faint);
   letter-spacing: 0.05em;
+}
+.share-honors { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+.honor-chip {
+  font-family: var(--font-mono); font-size: 11px;
+  border: 1px solid var(--accent-warm); color: var(--accent-warm);
+  padding: 4px 10px; border-radius: 20px;
 }
 
 /* ---------------- Modal ---------------- */

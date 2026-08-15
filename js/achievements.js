@@ -18,7 +18,7 @@ export function checkMilestones(character, log) {
     if ((character.careerCounters[m.track] ?? 0) >= m.threshold) {
       unlocked[m.id] = true;
       applyEffects(character, m.effects, log);
-      const summary = summarizeEffects(m.effects);
+      const summary = summarizeEffects(m.effects, character);
       log.push({ stage: character.meta.currentStageName, year: character.meta.careerYear, text: `達成成就：${m.title}${summary ? `　[${summary}]` : ""}` });
     }
   }

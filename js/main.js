@@ -15,11 +15,13 @@ import {
   advanceStage, simulateRegularStage, simulatePlayoff, checkQualification,
   rollMetaVersion, applyAgeDecay, evaluateRosterStatus,
   evaluateInvitations, grantTrainingPoints, tickChampionDecay, pickTradeDestination,
-  evaluateContractRenewal,
+  evaluateContractRenewal, trainCoreStat, paySalary, evaluateStageHonors, evaluateYearEndHonors,
+  computeContractSalary,
 } from "./season.js";
 import { checkMilestones } from "./achievements.js";
 import { rollInjuryChance, tickInjuries } from "./injuries.js";
 import { CHAMPIONS, getChampion, trainChampion, effectiveProficiency } from "./champions.js";
+import { computeCareerStats } from "./careerStats.js";
 
 const el = (id) => document.getElementById(id);
 let character = null;
@@ -134,6 +136,25 @@ function renderRollResult() {
     : `<div class="empty-hint">業餘時期沒有特別練過哪隻英雄</div>`;
 }
 
+function renderHonors() {
+  const c = character.careerCounters;
+  const rows = [
+    ["賽區冠軍", c.domesticTitles],
+    ["賽區亞軍", c.domesticRunnerUps],
+    ["國際賽冠軍", c.internationalTitles],
+    ["國際賽亞軍", c.internationalRunnerUps],
+    ["FMVP", c.fmvps],
+    ["賽段常規賽MVP", c.regularSeasonMVPs],
+    ["賽段最佳陣容", c.bestXI],
+    ["年度常規賽MVP", c.yearEndMVP],
+    ["年度賽區最佳", c.yearEndBestPosition],
+  ];
+  const earned = rows.filter(([, v]) => v > 0);
+  el("honors-list").innerHTML = earned.length
+    ? earned.map(([label, v]) => `<div class="team-stat"><span>${label}</span><span class="mono">${v}</span></div>`).join("")
+    : `<div class="empty-hint-inline">尚未拿下任何榮譽</div>`;
+}
+
 function statBarHtml(key, value) {
   const displayValue = Math.round(value * 10) / 10; // 顯示層兜底四捨五入，避免浮點數誤差顯示一長串小數
   return `
@@ -164,6 +185,7 @@ function renderInvitations() {
       const row = rows.find((r) => r.team.name === b.dataset.team);
       const t = row.team;
       character.team = { ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength, reputation: t.reputation };
+      character.team.contractSalary = computeContractSalary(character, t);
       character.meta.teamName = t.name;
       if (row.guaranteed) character.rosterStatus = "bench"; // 實力還沒到位，直接統一從替補開始
       startCareer();
@@ -209,8 +231,14 @@ function renderDashboard() {
     <div class="team-stat"><span>媒體評價</span><span class="mono">${Math.round(character.team.reputation)}</span></div>
   `;
   el("dash-fame").textContent = Math.round(character.fame);
-  el("dash-counters").textContent =
-    `${character.careerCounters.kills}K / ${character.careerCounters.deaths}D / ${character.careerCounters.assists}A ・ ${character.careerCounters.wins}勝${character.careerCounters.losses}敗`;
+  const cs = computeCareerStats(character);
+  el("dash-record").textContent = `${cs.wins}勝 ${cs.losses}敗（出場 ${cs.appearances}）`;
+  el("dash-kda").textContent = `${cs.kills} / ${cs.deaths} / ${cs.assists}　(KDA ${cs.kda})`;
+  el("dash-avg").textContent = `場均 ${cs.avgKills} / ${cs.avgDeaths} / ${cs.avgAssists}`;
+  el("dash-mvp").textContent = `${cs.mvps} 次`;
+  el("dash-salary").textContent = character.careerCounters.money.toLocaleString();
+
+  renderHonors();
 
   el("dash-injuries").innerHTML = character.injuries.length
     ? character.injuries.map((i) => `<span class="injury-tag">${i.name}（${i.duration}階段）</span>`).join("")
@@ -240,17 +268,10 @@ function renderChampionPanel() {
       </div>`;
   }).join("");
 
-  // 右側側欄：隊伍五路戰力
-  el("team-position-strength").innerHTML = POSITIONS.map((pos) => {
-    const val = character.team.positionStrength?.[pos] ?? character.team.baseStrength;
-    const isMine = pos === myPos;
-    return `
-      <div class="stat-row">
-        <span class="stat-label">${pos}${isMine ? "（你）" : ""}</span>
-        <div class="stat-track"><div class="stat-fill" style="width:${val}%"></div></div>
-        <span class="stat-value mono">${val}</span>
-      </div>`;
-  }).join("");
+  // 右側側欄：隊伍平均戰力
+  const posStrengths = Object.values(character.team.positionStrength ?? {});
+  const avgStrength = posStrengths.length ? Math.round(posStrengths.reduce((a, b) => a + b, 0) / posStrengths.length) : character.team.baseStrength;
+  el("team-avg-strength").textContent = avgStrength;
 
   const owned = Object.keys(character.champions);
   el("champion-list").innerHTML = owned.length
@@ -272,17 +293,36 @@ function renderChampionPanel() {
 function renderSummary() {
   showScreen("screen-summary");
   const c = character;
+  const cs = computeCareerStats(c);
   el("summary-name").textContent = c.meta.name;
   el("summary-seed").textContent = currentSeed ? `SEED ${currentSeed}` : "";
   el("summary-title").textContent = generateTitle(c);
   el("summary-subline").textContent = retirementReasonText(c);
 
   el("stat-years").textContent = `${c.meta.careerYear - 2026} 年`;
-  el("stat-record").textContent = `${c.careerCounters.wins}勝 ${c.careerCounters.losses}敗`;
-  el("stat-kda").textContent = `${c.careerCounters.kills} / ${c.careerCounters.deaths} / ${c.careerCounters.assists}`;
+  el("stat-appearances").textContent = `${cs.appearances} 場`;
+  el("stat-wins").textContent = `${cs.wins} 勝`;
+  el("stat-kda").textContent = cs.kda;
+  el("stat-mvps").textContent = `${cs.mvps} 次`;
   el("stat-worlds").textContent = `${c.careerCounters.worldsAppearances} 次`;
+  el("stat-kills").textContent = `${cs.kills} / ${cs.avgKills}`;
+  el("stat-assists").textContent = `${cs.assists} / ${cs.avgAssists}`;
+  el("stat-deaths").textContent = `${cs.deaths} / ${cs.avgDeaths}`;
   el("stat-fame").textContent = Math.round(c.fame);
-  el("stat-injuries").textContent = c.chronicInjuries.join("、") || "無";
+  el("stat-salary").textContent = c.careerCounters.money.toLocaleString();
+
+  const honorLabels = [
+    ["🏆賽區冠軍", c.careerCounters.domesticTitles],
+    ["🥈賽區亞軍", c.careerCounters.domesticRunnerUps],
+    ["🌍國際賽冠軍", c.careerCounters.internationalTitles],
+    ["國際賽亞軍", c.careerCounters.internationalRunnerUps],
+    ["FMVP", c.careerCounters.fmvps],
+    ["年度MVP", c.careerCounters.yearEndMVP],
+    ["年度最佳", c.careerCounters.yearEndBestPosition],
+  ].filter(([, v]) => v > 0);
+  el("share-honors").innerHTML = honorLabels.length
+    ? honorLabels.map(([label, v]) => `<span class="honor-chip">${label} ×${v}</span>`).join("")
+    : "";
 
   clearSave(); // 生涯結束，這份存檔沒有繼續的意義
 }
@@ -334,6 +374,7 @@ function advance() {
 
   grantTrainingPoints(character, stageType);
   tickChampionDecay(character, runtimeRng);
+  paySalary(character); // 每個賽段發放一次薪水，不管當下是不是比賽賽段
 
   // 壓力累積／消退：接近大賽自動累積（抗壓值可以緩衝累積量），休賽期自然消退
   if (stageType === "playoff" || stageType === "international") {
@@ -356,13 +397,19 @@ function advance() {
   if (stageType === "regular") {
     rollMetaVersion(character, runtimeRng);
     const stageKey = currentStageRecordKey();
-    const { wins, losses, longestWinStreak, longestLossStreak } = simulateRegularStage(character, runtimeRng);
+    const { wins, losses, longestWinStreak, longestLossStreak, totalGames, stageMvpCount } = simulateRegularStage(character, runtimeRng);
     character.seasonRecord[stageKey].wins += wins;
     character.seasonRecord[stageKey].losses += losses;
     let streakNote = "";
     if (longestWinStreak >= 3) streakNote = `，其中一度打出${longestWinStreak}連勝，隊伍士氣明顯提升`;
     else if (longestLossStreak >= 3) streakNote = `，其中一度吞下${longestLossStreak}連敗，氣氛一度低迷`;
-    pushLog(`例行賽戰績 ${wins}勝${losses}敗${streakNote}。`);
+    const rosterNote = character.rosterStatus !== "starter" ? `（本賽段排定${totalGames}場，實際出場${wins + losses}場）` : "";
+    pushLog(`例行賽戰績 ${wins}勝${losses}敗${streakNote}。${rosterNote}`);
+
+    const honors = evaluateStageHonors(character, stageMvpCount, wins + losses, wins, losses);
+    if (honors.regularSeasonMVP) pushLog(`🏆 榮獲本賽段常規賽MVP！`);
+    else if (honors.bestXI) pushLog(`⭐ 入選本賽段最佳陣容。`);
+
     maybeTriggerEvent();
     checkMilestones(character, log);
     const injury = rollInjuryChance(character, runtimeRng);
@@ -371,7 +418,9 @@ function advance() {
     const stageKey = currentStageRecordKey();
     const result = simulatePlayoff(character, runtimeRng);
     character.seasonRecord[stageKey].playoffResult = result;
-    pushLog(`季後賽結果：${result}。`);
+    const fmvpNote = result === "冠軍" && character.careerCounters.fmvps > (character.flags.__prevFmvps ?? 0) ? "，並拿下FMVP！" : "";
+    pushLog(`季後賽結果：${result}${fmvpNote}。`);
+    character.flags.__prevFmvps = character.careerCounters.fmvps;
     if (result === "冠軍" || result === "亞軍") character.team.favor = clamp(character.team.favor + 8, 0, 100);
     if (result === "冠軍") {
       character.flags["剛奪冠"] = true;
@@ -383,7 +432,9 @@ function advance() {
     character.seasonRecord.qualifiedEvents.push({ name: character.meta.currentStageName, result });
     character.careerCounters.worldsAppearances += character.meta.currentStageName === "S16世界大賽" ? 1 : 0;
     character.fame = clamp(character.fame + 10, 0, 100);
-    pushLog(`${character.meta.currentStageName} 結果：${result}，知名度提升。`);
+    const fmvpNote = result === "冠軍" && character.careerCounters.fmvps > (character.flags.__prevFmvps ?? 0) ? "，並拿下FMVP！" : "";
+    pushLog(`${character.meta.currentStageName} 結果：${result}${fmvpNote}，知名度提升。`);
+    character.flags.__prevFmvps = character.careerCounters.fmvps;
 
     // 四強就算成功：打進國際賽（現況的止步四強已是最差結果）後，狀態會下滑
     if (character.talents.some((t) => t.id === "semifinal_enough")) {
@@ -396,6 +447,9 @@ function advance() {
   } else if (stageType === "offseason_long") {
     tickInjuries(character, runtimeRng);
     applyAgeDecay(character, runtimeRng);
+    const yearHonors = evaluateYearEndHonors(character);
+    if (yearHonors.yearEndMVP) pushLog(`🏆 榮獲年度常規賽MVP！`);
+    else if (yearHonors.yearEndBestPosition) pushLog(`⭐ 入選年度賽區最佳${character.meta.position}。`);
     maybeTriggerEvent();
     if (!checkRetirement()) {
       character.team.contractYears -= 1;
@@ -429,6 +483,7 @@ function applyTrade() {
   }
 
   const oldTeam = character.team.name;
+  const oldRegion = character.meta.region;
   const messyExit = character.team.favor < 20; // 對應「魚死網破」曝光劇本
 
   character.team = {
@@ -441,14 +496,17 @@ function applyTrade() {
     favor: 50,
     contractYears: 2,
   };
+  character.team.contractSalary = computeContractSalary(character, dest);
   character.meta.teamName = dest.name;
+  character.meta.region = dest.region; // 跨賽區轉會：賽區也要跟著更新
 
+  const regionNote = dest.region !== oldRegion ? `，並跨賽區轉戰 ${dest.region}` : "";
   if (messyExit) {
     character.fame = clamp(character.fame + 10, 0, 100); // 話題性上升
     character.team.reputation = clamp(character.team.reputation - 10, 0, 100);
-    pushLog(`從 ${oldTeam} 火爆離隊，私訊「魚死網破，今晚就走」被截圖貼上「最強聯盟」，話題性暴衝但新東家對你多留了個心眼。`);
+    pushLog(`從 ${oldTeam} 火爆離隊${regionNote}，私訊「魚死網破，今晚就走」被截圖貼上「最強聯盟」，話題性暴衝但新東家對你多留了個心眼。`);
   } else {
-    pushLog(`完成轉隊，從 ${oldTeam} 加入 ${dest.name}。`);
+    pushLog(`完成轉隊，從 ${oldTeam} 加入 ${dest.name}${regionNote}。`);
   }
 }
 
@@ -480,7 +538,8 @@ function showContractPrompt(teamWantsRenew) {
       el("event-modal").classList.remove("open");
       if (b.dataset.act === "renew") {
         character.team.contractYears = 2;
-        pushLog(`與 ${character.team.name} 完成續約，簽下2年新合約。`);
+        character.team.contractSalary = computeContractSalary(character, character.team);
+        pushLog(`與 ${character.team.name} 完成續約，簽下2年新合約，年薪重新議定為 ${character.team.contractSalary.toLocaleString()} 萬。`);
         renderDashboard();
         saveGame();
       } else {
@@ -491,19 +550,19 @@ function showContractPrompt(teamWantsRenew) {
 }
 
 function showFreeAgencyPrompt() {
-  const rows = evaluateInvitations(character, runtimeRng).filter((r) => r.invited && r.team.name !== character.team.name);
+  const rows = evaluateInvitations(character, runtimeRng, true).filter((r) => r.invited && r.team.name !== character.team.name);
   if (rows.length === 0) {
     // 理論上 evaluateInvitations 保底3隊，這裡防呆一下避免篩掉自己隊伍後剛好變0隊
-    const fallback = evaluateInvitations(character, runtimeRng).filter((r) => r.team.name !== character.team.name)[0];
+    const fallback = evaluateInvitations(character, runtimeRng, true).filter((r) => r.team.name !== character.team.name)[0];
     rows.push(fallback);
   }
   el("event-title").textContent = "自由市場";
-  el("event-text").textContent = "以下隊伍向你招手，選一支加入：";
+  el("event-text").textContent = "以下隊伍向你招手（不限賽區），選一支加入：";
   el("dice-area").innerHTML = "";
   el("dice-area").classList.remove("show");
   el("event-choices").classList.remove("hidden");
   el("event-choices").innerHTML = rows.map((r) =>
-    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（該路戰力 ${r.team.positionStrength[character.meta.position]}）${r.guaranteed ? "・先從替補做起" : ""}</button>`
+    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${r.team.region}・該路戰力 ${r.team.positionStrength[character.meta.position]}）${r.guaranteed ? "・先從替補做起" : ""}</button>`
   ).join("");
   el("event-modal").classList.add("open");
 
@@ -512,12 +571,16 @@ function showFreeAgencyPrompt() {
       const row = rows.find((r) => r.team.name === b.dataset.team);
       const t = row.team;
       const oldTeam = character.team.name;
+      const oldRegion = character.meta.region;
       character.team = {
         ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength,
         reputation: t.reputation, chemistry: 50, favor: 50, contractYears: 2,
       };
+      character.team.contractSalary = computeContractSalary(character, t);
       character.meta.teamName = t.name;
-      pushLog(`合約到期後在自由市場，從 ${oldTeam} 轉會加入 ${t.name}。`);
+      character.meta.region = t.region;
+      const regionNote = t.region !== oldRegion ? `，跨賽區轉戰 ${t.region}` : "";
+      pushLog(`合約到期後在自由市場，從 ${oldTeam} 轉會加入 ${t.name}${regionNote}，簽下年薪 ${character.team.contractSalary.toLocaleString()} 萬的新合約。`);
       el("event-modal").classList.remove("open");
       renderDashboard();
       saveGame();
@@ -683,7 +746,7 @@ function finishEvent(event, choice, outcome, dice) {
   applyEffects(character, outcome.effects ?? [], log);
   const resultNote = outcome.resultText ? `　${outcome.resultText}` : "";
   const diceNote = dice ? `（骰${dice.d1}+${dice.d2}=${dice.sum}，${dice.passed ? "過關" : "失敗"}）` : "";
-  const statSummary = summarizeEffects(outcome.effects ?? []);
+  const statSummary = summarizeEffects(outcome.effects ?? [], character);
   const statNote = statSummary ? `　[${statSummary}]` : "";
   pushLog(`【${event.title}】選擇了「${choice.label}」${diceNote}${resultNote}${statNote}`);
   el("event-modal").classList.remove("open");
@@ -734,6 +797,18 @@ el("btn-relax").addEventListener("click", () => {
   renderDashboard();
   saveGame();
 });
+document.querySelectorAll(".btn-core-train").forEach((b) =>
+  b.addEventListener("click", () => {
+    if (!character || character.trainingPoints < 1) return;
+    const stat = b.dataset.stat;
+    character.trainingPoints -= 1;
+    const { gain, champBonus } = trainCoreStat(character, stat, character.meta.currentStageIndex, runtimeRng);
+    const champNote = champBonus ? `，練習時順便帶動了「${getChampion(champBonus)?.name ?? champBonus}」的手感` : "";
+    pushLog(`花費訓練點數加強「${stat}」，能力值提升了 ${gain.toFixed(1)}${champNote}。`);
+    renderDashboard();
+    saveGame();
+  })
+);
 el("btn-new-career").addEventListener("click", () => {
   if (confirm("確定要放棄目前的生涯，重新開始嗎？這個動作無法復原。")) {
     clearSave();

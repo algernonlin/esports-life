@@ -1,10 +1,10 @@
 // ============================================================
 // season.js — 賽制推進、國際賽資格、輪換狀態、年齡衰退
 // ============================================================
-import { SEASON_FLOW, META_VERSIONS, TEAMS } from "./state.js";
+import { SEASON_FLOW, META_VERSIONS, TEAMS, ALL_TEAMS, REGION_SALARY_MULTIPLIER } from "./state.js";
 import { simulateMatch } from "./match.js";
 import { clamp, randomRange, pickWeighted } from "./rng.js";
-import { decayChampionProficiency, rollMetaChampions } from "./champions.js";
+import { decayChampionProficiency, rollMetaChampions, trainChampion } from "./champions.js";
 
 // -------------------------------------------------------------
 // 國際賽資格判定（示範用簡化規則，可依你研究的真實名額調整）
@@ -57,13 +57,14 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
   let currentStreak = 0; // 正=連勝中，負=連敗中
   let longestWinStreak = 0;
   let longestLossStreak = 0;
+  let stageMvpCount = 0;
 
   for (let i = 0; i < totalGames; i++) {
-    if (character.rosterStatus === "bench" && runtimeRng() > 0.15) {
+    if (character.rosterStatus === "bench" && runtimeRng() > 0.3) {
       results.push({ played: false });
       continue;
     }
-    if (character.rosterStatus === "rotation" && runtimeRng() > 0.6) {
+    if (character.rosterStatus === "rotation" && runtimeRng() > 0.65) {
       results.push({ played: false });
       continue;
     }
@@ -84,6 +85,7 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
     character.careerCounters.kills += result.kills;
     character.careerCounters.deaths += result.deaths;
     character.careerCounters.assists += result.assists;
+    if (result.mvp) { character.careerCounters.mvps++; stageMvpCount++; }
     if (result.carryButLose) character.flags["本場carry但輸"] = true;
   }
 
@@ -93,7 +95,7 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
 
   const wins = results.filter((r) => r.played && r.win).length;
   const losses = results.filter((r) => r.played && !r.win).length;
-  return { results, wins, losses, longestWinStreak, longestLossStreak, chemistryDelta };
+  return { results, wins, losses, longestWinStreak, longestLossStreak, chemistryDelta, totalGames, stageMvpCount };
 }
 
 export function simulatePlayoff(character, runtimeRng, { isInternational = false } = {}) {
@@ -112,11 +114,31 @@ export function simulatePlayoff(character, runtimeRng, { isInternational = false
       runtimeRng
     );
     result.win ? wins++ : losses++;
+
+    // 季後賽/國際賽的K/D/A跟勝敗，一樣要累積進生涯數據，之前漏掉了
+    character.careerCounters.kills += result.kills;
+    character.careerCounters.deaths += result.deaths;
+    character.careerCounters.assists += result.assists;
+    if (result.win) character.careerCounters.wins++; else character.careerCounters.losses++;
+    if (result.mvp) character.careerCounters.mvps++;
+
     if (wins >= 3 || losses >= 3) break;
   }
-  if (wins >= 3) return "冠軍";
-  if (losses >= 3 && wins >= 1) return "亞軍";
-  return "止步四強";
+
+  let result;
+  if (wins >= 3) {
+    result = "冠軍";
+    if (isInternational) character.careerCounters.internationalTitles++;
+    else character.careerCounters.domesticTitles++;
+    rollFinalsMVP(character, runtimeRng);
+  } else if (losses >= 3 && wins >= 1) {
+    result = "亞軍";
+    if (isInternational) character.careerCounters.internationalRunnerUps++;
+    else character.careerCounters.domesticRunnerUps++;
+  } else {
+    result = "止步四強";
+  }
+  return result;
 }
 
 // 國際賽對手池：抓其他賽區各自最強的前3隊，模擬「打進國際賽會遇到各賽區精英」
@@ -200,7 +222,7 @@ export function applyAgeDecay(character, runtimeRng) {
 // 排除現在的隊伍；用跟邀請一樣的補強邏輯，越缺你這個位置的隊伍權重越高
 // -------------------------------------------------------------
 export function pickTradeDestination(character, runtimeRng) {
-  const teams = (TEAMS[character.meta.region] ?? []).filter((t) => t.name !== character.team.name);
+  const teams = ALL_TEAMS.filter((t) => t.name !== character.team.name);
   if (teams.length === 0) return null;
 
   const myPos = character.meta.position;
@@ -209,6 +231,32 @@ export function pickTradeDestination(character, runtimeRng) {
     return { ...t, weight: need };
   });
   return pickWeighted(runtimeRng, weighted);
+}
+
+// -------------------------------------------------------------
+// 主動加強核心能力值：只開放 反應/意識/版本適應力 三項
+// 溝通/抗壓/領導 只能靠事件被動變動（詳見設計討論：這三項是「跟人相處/被逼出來」的特質，
+// 不適合關起門來自己練）
+// 漸進遞減：越接近上限，單次漲幅越小，避免變成無腦點數字
+// -------------------------------------------------------------
+export const TRAINABLE_CORE_STATS = ["反應", "意識", "版本適應力"];
+
+export function trainCoreStat(character, stat, currentStageIndex, runtimeRng) {
+  if (!TRAINABLE_CORE_STATS.includes(stat)) return { gain: 0, champBonus: null };
+  const current = character.stats[stat] ?? 50;
+  const gain = clamp(1.5 * (1 - (current - 50) / 80), 0.2, 1.5);
+  character.stats[stat] = clamp(Math.round((current + gain) * 10) / 10, 1, 99);
+
+  // 30%機率，練基本功順便帶動一隻你已經在練的英雄手感（小幅加成，不算額外花點數）
+  let champBonus = null;
+  const owned = Object.keys(character.champions);
+  if (owned.length && runtimeRng() < 0.3) {
+    const id = owned[Math.floor(runtimeRng() * owned.length)];
+    trainChampion(character, id, 1, currentStageIndex);
+    champBonus = id;
+  }
+
+  return { gain, champBonus };
 }
 
 // -------------------------------------------------------------
@@ -236,8 +284,10 @@ export function tickChampionDecay(character, runtimeRng) {
 // 隊伍邀請評估：依「你的位置」對「該隊該位置的需求」做補強式判定
 // 該隊該位置越弱，門檻越低（求才若渴）；保底至少湊滿3隊邀請
 // -------------------------------------------------------------
-export function evaluateInvitations(character, runtimeRng) {
-  const teams = TEAMS[character.meta.region] ?? [];
+// crossRegion=false（預設）：開局選秀用，只在你選的賽區內找隊伍——這是敘事偏好/難度選擇，
+// crossRegion=true：合約到期後的自由市場用，搜尋全部賽區——能不能站上頂級賽區純看實力，不侷限開局選擇
+export function evaluateInvitations(character, runtimeRng, crossRegion = false) {
+  const teams = (crossRegion ? ALL_TEAMS : TEAMS[character.meta.region]) ?? [];
   const myPos = character.meta.position;
   const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
 
@@ -262,6 +312,83 @@ export function evaluateInvitations(character, runtimeRng) {
   }
 
   return rows;
+}
+
+// -------------------------------------------------------------
+// 合約薪水：簽約當下算好、鎖定，不會因為之後表現/知名度變動而浮動，
+// 只有換約（續約/轉會/自由市場）才會重新議價算出新數字
+// -------------------------------------------------------------
+export function computeContractSalary(character, team) {
+  const regionMult = REGION_SALARY_MULTIPLIER[team.region] ?? 1.0;
+  return Math.round(team.baseStrength * 30 * regionMult + character.fame * 5);
+}
+
+// -------------------------------------------------------------
+// 薪水發放：讀取簽約時鎖定的年薪，依當下先發/輪換/替補狀態打折，
+// 每個賽段發放一次（年薪本身不會變，變的只有出賽狀態的折扣）
+// -------------------------------------------------------------
+const ROSTER_SALARY_MULTIPLIER = { starter: 1.0, rotation: 0.6, bench: 0.3 };
+
+export function paySalary(character) {
+  const annualSalary = character.team.contractSalary ?? 0;
+  const rosterMult = ROSTER_SALARY_MULTIPLIER[character.rosterStatus] ?? 0.3;
+  const perStage = Math.round((annualSalary * rosterMult) / SEASON_FLOW.length);
+  character.careerCounters.money = (character.careerCounters.money ?? 0) + perStage;
+  return perStage;
+}
+
+// -------------------------------------------------------------
+// 賽段級榮譽判定：常規賽MVP（門檻較高）跟最佳陣容（門檻較低），
+// 用「這個賽段單場MVP次數佔出場比例」當簡化替代——引擎沒有真的模擬其他選手，
+// 沒辦法真的排名，用這個比例當作「這賽段打得夠不夠突出」的判斷依據
+// -------------------------------------------------------------
+export function evaluateStageHonors(character, stageMvpCount, gamesPlayed, wins, losses) {
+  if (gamesPlayed === 0) return { regularSeasonMVP: false, bestXI: false };
+  const mvpRate = stageMvpCount / gamesPlayed;
+  const winningRecord = wins > losses;
+
+  const regularSeasonMVP = mvpRate >= 0.35 && winningRecord;
+  const bestXI = !regularSeasonMVP && mvpRate >= 0.2;
+
+  if (regularSeasonMVP) {
+    character.careerCounters.regularSeasonMVPs++;
+    character.yearRecord.stageMvpCount++;
+  }
+  if (bestXI) character.careerCounters.bestXI++;
+
+  return { regularSeasonMVP, bestXI };
+}
+
+// -------------------------------------------------------------
+// 年度榮譽結算：一年三個賽段都拿下賽段MVP才夠格「年度常規賽MVP」，
+// 拿到至少2次才夠格「年度賽區最佳(該位置)」。長休賽期年度重置前呼叫。
+// -------------------------------------------------------------
+export function evaluateYearEndHonors(character) {
+  const count = character.yearRecord.stageMvpCount;
+  const result = { yearEndMVP: false, yearEndBestPosition: false };
+
+  if (count >= 3) {
+    character.careerCounters.yearEndMVP++;
+    result.yearEndMVP = true;
+  } else if (count >= 2) {
+    character.careerCounters.yearEndBestPosition++;
+    result.yearEndBestPosition = true;
+  }
+
+  character.yearRecord.stageMvpCount = 0; // 重置，準備下一年
+  return result;
+}
+
+// -------------------------------------------------------------
+// FMVP判定：只有奪冠時才可能拿到，機率跟「你的能力值相對隊伍其他人有多突出」掛鉤
+// （引擎沒有真的模擬隊友個人數據，用你的能力值 vs 隊伍baseStrength的落差當代理指標）
+// -------------------------------------------------------------
+export function rollFinalsMVP(character, runtimeRng) {
+  const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
+  const chance = clamp(0.3 + (statAvg - character.team.baseStrength) / 100, 0.15, 0.85);
+  const won = runtimeRng() < chance;
+  if (won) character.careerCounters.fmvps++;
+  return won;
 }
 
 // -------------------------------------------------------------

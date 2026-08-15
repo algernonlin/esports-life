@@ -95,7 +95,12 @@ export function personalPerformance(character, matchContext = {}) {
 
   // 英雄適配層：能力值85% + 英雄熟練度/版本英雄加成15%，下限0.4不會讓玩家卡死
   const { fit } = pickMatchChampionFit(character, character.meta.position, character.seasonRecord.metaChampions);
-  const perf = baseAbility * 0.85 + baseAbility * fit * 0.15;
+  let perf = baseAbility * 0.85 + baseAbility * fit * 0.15;
+
+  // 場次間的小幅隨機浮動：沒有這個的話，同一個角色狀態不變時每場perf幾乎固定，
+  // MVP這種「偶爾打出神仙表現」的判定永遠不會觸發。神經刀高的人浮動更大，呼應這個性格特質。
+  const neuroSwing = 0.1 + (character.personality["神經刀"] ?? 30) / 100 * 0.25;
+  perf *= 1 + (runtimeRng() - 0.5) * 2 * neuroSwing;
 
   return clamp(perf, 1, 99);
 }
@@ -150,6 +155,11 @@ export function simulateMatch(character, opponentStrength, matchContext = {}, ru
   const kda = deaths === 0 ? kills + assists : (kills + assists) / deaths;
 
   const carryButLose = !win && perf >= 70;
+  // MVP：用「相對於自己平均能力值」的表現來判定，而不是絕對門檻——
+  // 絕對門檻70分在一般角色(perf通常落在40~55)身上根本碰不到，只有極端頂尖角色摸得到，
+  // 相對門檻才能讓不同強度的角色都有機會「打出超出自己水準的一場」
+  const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
+  const mvp = win && perf >= Math.min(statAvg * 1.15, 90); // 相對門檻，但夾住上限，避免頂尖角色因為99分上限反而摸不到
 
-  return { win, kills, deaths, assists, kda: Math.round(kda * 100) / 100, carryButLose, myTeamValue, opponentValue };
+  return { win, kills, deaths, assists, kda: Math.round(kda * 100) / 100, carryButLose, mvp, myTeamValue, opponentValue };
 }

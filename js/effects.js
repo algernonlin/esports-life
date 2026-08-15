@@ -63,6 +63,13 @@ export function applyEffects(character, effects = [], log = []) {
         character.careerCounters[eff.counter] = (character.careerCounters[eff.counter] ?? 0) + eff.value;
         break;
       }
+      case "money_percent": {
+        // 罰款/獎金用「合約年薪的百分比」計算，而不是寫死絕對數字——
+        // 這樣LPL跟LCP選手被罰/賺的痛感/爽感才會等比例，不會因為賽區薪資差距而失真
+        const amount = Math.round((character.team.contractSalary ?? 0) * eff.value);
+        character.careerCounters.money = (character.careerCounters.money ?? 0) + amount;
+        break;
+      }
       default:
         console.warn("未知的 effect type：", eff.type);
     }
@@ -77,7 +84,7 @@ export function applyEffects(character, effects = [], log = []) {
 const TEAM_STAT_LABELS = { chemistry: "化學反應", favor: "隊伍好感度", reputation: "媒體評價" };
 const COUNTER_LABELS = { money: "獎金" };
 
-export function summarizeEffects(effects = []) {
+export function summarizeEffects(effects = [], character = null) {
   const parts = [];
   const sign = (v) => (v >= 0 ? "+" : "") + v;
   for (const eff of effects) {
@@ -96,6 +103,15 @@ export function summarizeEffects(effects = []) {
       case "career_counter_delta":
         parts.push(`${COUNTER_LABELS[eff.counter] ?? eff.counter}${sign(eff.value)}`);
         break;
+      case "money_percent": {
+        if (character) {
+          const amount = Math.round((character.team.contractSalary ?? 0) * eff.value);
+          parts.push(`獎金${sign(amount)}萬`);
+        } else {
+          parts.push(`獎金${sign(Math.round(eff.value * 100))}%`);
+        }
+        break;
+      }
       default:
         break; // flag_set / flag_clear / add_injury 不是數值變化，不列入摘要
     }
