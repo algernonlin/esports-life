@@ -6,9 +6,9 @@ import {
   createCharacter, SEASON_FLOW,
 } from "./state.js";
 import { makeSeedRng, randomSeedString, runtimeRng, clamp } from "./rng.js";
-import { rollStats, rollPersonality, rollTalents } from "./roll.js";
+import { rollStats, rollPersonality, rollTalents, rollInitialChampions } from "./roll.js";
 import { checkAllConditions } from "./conditions.js";
-import { applyEffects } from "./effects.js";
+import { applyEffects, summarizeEffects } from "./effects.js";
 import { pickEvent, markEventCooldown, resolveChoiceOutcome } from "./events.js";
 import { faceChar } from "./dice.js";
 import {
@@ -81,6 +81,7 @@ function doRoll(seedStr) {
   character.stats = rollStats(seedRng, pendingRoll.position);
   character.personality = rollPersonality(seedRng);
   character.talents = rollTalents(seedRng);
+  character.champions = rollInitialChampions(seedRng, pendingRoll.position);
 
   // 夜貓子：體能基礎值略低
   if (character.talents.some((t) => t.id === "night_owl")) {
@@ -119,14 +120,27 @@ function renderRollResult() {
   el("talent-list").innerHTML = character.talents.length
     ? character.talents.map((t) => `<div class="talent-tag rarity-${t.rarity}"><b>${t.name}</b><span>${t.desc}</span></div>`).join("")
     : `<div class="empty-hint">本次開局沒有先天天賦</div>`;
+
+  const champEntries = Object.entries(character.champions);
+  el("initial-champion-list").innerHTML = champEntries.length
+    ? champEntries.map(([id, entry]) => {
+        const champ = getChampion(id);
+        return `<div class="stat-row">
+          <span class="stat-label">${champ?.name ?? id}</span>
+          <div class="stat-track"><div class="stat-fill" style="width:${entry.proficiency}%"></div></div>
+          <span class="stat-value mono">${Math.round(entry.proficiency)}</span>
+        </div>`;
+      }).join("")
+    : `<div class="empty-hint">業餘時期沒有特別練過哪隻英雄</div>`;
 }
 
 function statBarHtml(key, value) {
+  const displayValue = Math.round(value * 10) / 10; // 顯示層兜底四捨五入，避免浮點數誤差顯示一長串小數
   return `
     <div class="stat-row">
       <span class="stat-label">${key}</span>
       <div class="stat-track"><div class="stat-fill" style="width:${value}%"></div></div>
-      <span class="stat-value mono">${value}</span>
+      <span class="stat-value mono">${displayValue}</span>
     </div>`;
 }
 
@@ -140,7 +154,7 @@ function renderInvitations() {
         <span class="invite-name">${r.team.name}</span>
         <span class="invite-strength mono">該路戰力 ${r.team.positionStrength[character.meta.position]}</span>
       </div>
-      <div class="invite-status">${r.invited ? (r.guaranteed ? "小聯盟球探邀請" : "一軍正式邀請") : "暫無邀約"}</div>
+      <div class="invite-status">${r.invited ? (r.guaranteed ? "邀請你加入（先從替補做起）" : "一軍正式邀請") : "暫無邀約"}</div>
       ${r.invited ? `<button class="btn-small" data-team="${r.team.name}">加入</button>` : ""}
     </div>
   `).join("");
@@ -151,6 +165,7 @@ function renderInvitations() {
       const t = row.team;
       character.team = { ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength, reputation: t.reputation };
       character.meta.teamName = t.name;
+      if (row.guaranteed) character.rosterStatus = "bench"; // 實力還沒到位，直接統一從替補開始
       startCareer();
     })
   );
@@ -211,14 +226,31 @@ function renderChampionPanel() {
 
   const myPos = character.meta.position;
   const relevant = CHAMPIONS.filter((c) => c.primary === myPos || c.secondary.includes(myPos));
-  el("champion-select").innerHTML = relevant.map((c) => `<option value="${c.id}">${c.name}（${c.primary === myPos ? "本命" : "可兼"}）</option>`).join("");
+  el("champion-select").innerHTML = relevant.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
 
+  // 右側側欄：全部五個位置的版本英雄一覽，不只你自己的位置
   const metaIds = character.seasonRecord.metaChampions ?? [];
-  const metaMyPos = metaIds.map((id) => getChampion(id)).filter((c) => c && c.primary === myPos);
-  el("meta-champion-list").innerHTML = metaMyPos.length
-    ? `<div class="meta-champ-title">本賽段「${myPos}」版本英雄</div>
-       <div class="meta-champ-chips">${metaMyPos.map((c) => `<span class="meta-champ-chip ${character.champions[c.id] ? "owned" : ""}">${c.name}</span>`).join("")}</div>`
-    : "";
+  el("meta-champion-list").innerHTML = POSITIONS.map((pos) => {
+    const champs = metaIds.map((id) => getChampion(id)).filter((c) => c && c.primary === pos);
+    if (!champs.length) return "";
+    return `
+      <div class="meta-champ-group">
+        <div class="meta-champ-title">${pos}</div>
+        <div class="meta-champ-chips">${champs.map((c) => `<span class="meta-champ-chip ${character.champions[c.id] ? "owned" : ""}">${c.name}</span>`).join("")}</div>
+      </div>`;
+  }).join("");
+
+  // 右側側欄：隊伍五路戰力
+  el("team-position-strength").innerHTML = POSITIONS.map((pos) => {
+    const val = character.team.positionStrength?.[pos] ?? character.team.baseStrength;
+    const isMine = pos === myPos;
+    return `
+      <div class="stat-row">
+        <span class="stat-label">${pos}${isMine ? "（你）" : ""}</span>
+        <div class="stat-track"><div class="stat-fill" style="width:${val}%"></div></div>
+        <span class="stat-value mono">${val}</span>
+      </div>`;
+  }).join("");
 
   const owned = Object.keys(character.champions);
   el("champion-list").innerHTML = owned.length
@@ -307,7 +339,7 @@ function advance() {
   if (stageType === "playoff" || stageType === "international") {
     const gain = clamp(15 - (character.stats["抗壓"] - 50) / 5, 5, 25);
     const talentMod = character.talents?.some((t) => t.id === "self_proclaimed_goat") ? 1.3 : 1;
-    character.dynamic["壓力"] = clamp((character.dynamic["壓力"] ?? 20) + gain * talentMod, 0, 100);
+    character.dynamic["壓力"] = clamp(Math.round((character.dynamic["壓力"] ?? 20) + gain * talentMod), 0, 100);
   } else if (stageType === "offseason_short") {
     character.dynamic["壓力"] = clamp((character.dynamic["壓力"] ?? 20) - 8, 0, 100);
   } else if (stageType === "offseason_long") {
@@ -471,7 +503,7 @@ function showFreeAgencyPrompt() {
   el("dice-area").classList.remove("show");
   el("event-choices").classList.remove("hidden");
   el("event-choices").innerHTML = rows.map((r) =>
-    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（該路戰力 ${r.team.positionStrength[character.meta.position]}）${r.guaranteed ? "・小聯盟邀請" : ""}</button>`
+    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（該路戰力 ${r.team.positionStrength[character.meta.position]}）${r.guaranteed ? "・先從替補做起" : ""}</button>`
   ).join("");
   el("event-modal").classList.add("open");
 
@@ -651,7 +683,9 @@ function finishEvent(event, choice, outcome, dice) {
   applyEffects(character, outcome.effects ?? [], log);
   const resultNote = outcome.resultText ? `　${outcome.resultText}` : "";
   const diceNote = dice ? `（骰${dice.d1}+${dice.d2}=${dice.sum}，${dice.passed ? "過關" : "失敗"}）` : "";
-  pushLog(`【${event.title}】選擇了「${choice.label}」${diceNote}${resultNote}`);
+  const statSummary = summarizeEffects(outcome.effects ?? []);
+  const statNote = statSummary ? `　[${statSummary}]` : "";
+  pushLog(`【${event.title}】選擇了「${choice.label}」${diceNote}${resultNote}${statNote}`);
   el("event-modal").classList.remove("open");
   renderDashboard();
   saveGame();

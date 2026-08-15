@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
 <title>PRO LEAGUE — 電競人生模擬器</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
@@ -82,6 +83,9 @@
       <h2 class="section-title">先天天賦</h2>
       <div id="talent-list" class="talent-list"></div>
 
+      <h2 class="section-title">業餘時期練過的英雄</h2>
+      <div id="initial-champion-list" class="stat-list"></div>
+
       <div class="btn-row">
         <button id="btn-reroll" class="btn-ghost">重新擲骰</button>
         <button id="btn-confirm-roll" class="btn-primary">確定開局 ▸</button>
@@ -158,25 +162,40 @@
 
       <button id="btn-advance" class="btn-primary btn-block btn-advance">推進至下一階段 ▸</button>
 
-      <div class="panel">
-        <h3 class="section-title small">英雄訓練　<span class="mono accent-text" id="training-points">0</span> 點可用</h3>
-        <div class="train-controls">
-          <select id="champion-select" class="text-input"></select>
-          <button id="btn-train" class="btn-small">花1點練習</button>
-        </div>
-        <div class="train-controls">
-          <button id="btn-fitness" class="btn-ghost" style="flex:1;">花1點保養體能（降低下次衰退機率）</button>
-        </div>
-        <div class="train-controls">
-          <button id="btn-relax" class="btn-ghost" style="flex:1;">花1點紓壓（降低壓力值）</button>
-        </div>
-        <div id="meta-champion-list" class="meta-champion-list"></div>
-        <div id="champion-list" class="champion-list"></div>
-      </div>
+      <div class="dash-columns">
+        <div class="dash-col-main">
+          <div class="panel">
+            <h3 class="section-title small">英雄訓練　<span class="mono accent-text" id="training-points">0</span> 點可用</h3>
+            <div class="train-controls">
+              <select id="champion-select" class="text-input"></select>
+              <button id="btn-train" class="btn-small">花1點練習</button>
+            </div>
+            <div class="train-controls">
+              <button id="btn-fitness" class="btn-ghost" style="flex:1;">花1點保養體能（降低下次衰退機率）</button>
+            </div>
+            <div class="train-controls">
+              <button id="btn-relax" class="btn-ghost" style="flex:1;">花1點紓壓（降低壓力值）</button>
+            </div>
+            <div id="champion-list" class="champion-list"></div>
+          </div>
 
-      <div class="panel">
-        <h3 class="section-title small">生涯紀錄</h3>
-        <div id="event-log" class="log-list"></div>
+          <div class="panel">
+            <h3 class="section-title small">生涯紀錄</h3>
+            <div id="event-log" class="log-list"></div>
+          </div>
+        </div>
+
+        <aside class="dash-col-side">
+          <div class="panel">
+            <h3 class="section-title small">本賽段版本英雄</h3>
+            <div id="meta-champion-list" class="meta-champion-list"></div>
+          </div>
+
+          <div class="panel">
+            <h3 class="section-title small">隊伍五路戰力</h3>
+            <div id="team-position-strength" class="stat-list"></div>
+          </div>
+        </aside>
       </div>
     </main>
   </div>

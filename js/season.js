@@ -45,16 +45,20 @@ export function evaluateRosterStatus(character) {
 // 方案A：批次跑完後，把過程中的最長連勝/連敗摘要出來，
 // 連勝/連敗每滿3場會影響隊伍化學反應（士氣），並回傳給UI顯示摘要文字
 // -------------------------------------------------------------
-export function simulateRegularStage(character, runtimeRng, gamesCount = 18) {
+export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
   const results = [];
   const regionTeams = TEAMS[character.meta.region] ?? [];
   character.rosterStatus = evaluateRosterStatus(character);
+
+  // 場次改成「雙循環」：對賽區內其他每一隊各打兩輪，場次會依賽區隊伍數量自動調整
+  const opponentCount = Math.max(regionTeams.length - 1, 1);
+  const totalGames = gamesCount ?? opponentCount * 2;
 
   let currentStreak = 0; // 正=連勝中，負=連敗中
   let longestWinStreak = 0;
   let longestLossStreak = 0;
 
-  for (let i = 0; i < gamesCount; i++) {
+  for (let i = 0; i < totalGames; i++) {
     if (character.rosterStatus === "bench" && runtimeRng() > 0.15) {
       results.push({ played: false });
       continue;
@@ -94,9 +98,14 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = 18) {
 
 export function simulatePlayoff(character, runtimeRng, { isInternational = false } = {}) {
   let wins = 0, losses = 0;
+  const opponentPool = isInternational
+    ? buildInternationalOpponentPool(character)
+    : (TEAMS[character.meta.region] ?? []).filter((t) => t.name !== character.team.name);
+
   for (let i = 0; i < 5; i++) {
     const isDecidingGame = wins === 2 && losses === 2; // BO5打到2:2，第5場就是決勝局
-    const oppStrength = character.team.baseStrength + randomRange(runtimeRng, -6, 10);
+    const opponent = opponentPool.length ? pickWeighted(runtimeRng, opponentPool.map((t) => ({ ...t, weight: 1 }))) : null;
+    const oppStrength = (opponent?.baseStrength ?? character.team.baseStrength) + randomRange(runtimeRng, -4, 6);
     const result = simulateMatch(
       character, oppStrength,
       { isMajorEvent: true, isInternational, isDecidingGame, seriesGameIndex: i },
@@ -108,6 +117,17 @@ export function simulatePlayoff(character, runtimeRng, { isInternational = false
   if (wins >= 3) return "冠軍";
   if (losses >= 3 && wins >= 1) return "亞軍";
   return "止步四強";
+}
+
+// 國際賽對手池：抓其他賽區各自最強的前3隊，模擬「打進國際賽會遇到各賽區精英」
+function buildInternationalOpponentPool(character) {
+  const pool = [];
+  for (const region of Object.keys(TEAMS)) {
+    if (region === character.meta.region) continue; // 避免國際賽又打回自己賽區的隊伍
+    const top3 = [...TEAMS[region]].sort((a, b) => b.baseStrength - a.baseStrength).slice(0, 3);
+    pool.push(...top3);
+  }
+  return pool;
 }
 
 // -------------------------------------------------------------
@@ -236,7 +256,7 @@ export function evaluateInvitations(character, runtimeRng) {
     for (const r of candidates) {
       if (need <= 0) break;
       r.invited = true;
-      r.guaranteed = true; // 保底邀請：小聯盟/二隊性質的機會，非正式一軍門檻通過
+      r.guaranteed = true; // 保底邀請：實力還不到位，加入後直接從替補做起，不做「二隊」這層區分
       need--;
     }
   }

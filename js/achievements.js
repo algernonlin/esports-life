@@ -1,7 +1,7 @@
 // ============================================================
 // achievements.js — 生涯累積型成就（里程碑），跟事件共用效果結算器
 // ============================================================
-import { applyEffects } from "./effects.js";
+import { applyEffects, summarizeEffects } from "./effects.js";
 
 export const MILESTONES = [
   { id: "kills_100",  track: "kills",  threshold: 100,  title: "百殺新秀", effects: [{ type: "stat_delta", stat: "反應", value: 1 }, { type: "fame_delta", value: 3 }] },
@@ -18,7 +18,8 @@ export function checkMilestones(character, log) {
     if ((character.careerCounters[m.track] ?? 0) >= m.threshold) {
       unlocked[m.id] = true;
       applyEffects(character, m.effects, log);
-      log.push({ type: "milestone", title: m.title, year: character.meta.careerYear });
+      const summary = summarizeEffects(m.effects);
+      log.push({ stage: character.meta.currentStageName, year: character.meta.careerYear, text: `達成成就：${m.title}${summary ? `　[${summary}]` : ""}` });
     }
   }
   character.flags.__milestones = unlocked;

@@ -3,6 +3,7 @@
 // ============================================================
 import { STAT_KEYS, PERSONALITY_TRAITS, POSITION_SPECIALTY, INNATE_TALENTS } from "./state.js";
 import { gaussianRandom, clamp, randomRange } from "./rng.js";
+import { CHAMPIONS } from "./champions.js";
 
 const RARITY_WEIGHT = { common: 70, rare: 25, legendary: 5 };
 
@@ -48,4 +49,25 @@ export function rollTalents(seedRng, maxCount = 2) {
     pool.splice(idx, 1);
   }
   return talents;
+}
+
+// -------------------------------------------------------------
+// 開局基礎英雄池：業餘時期多少會練過幾隻該位置的英雄，
+// 不會整個英雄清單空白開局。抽3-5隻本命位置英雄，各給隨機基礎熟練度(15-45)
+// -------------------------------------------------------------
+export function rollInitialChampions(seedRng, position) {
+  const pool = CHAMPIONS.filter((c) => c.primary === position);
+  const count = 3 + Math.floor(seedRng() * 3); // 3~5隻
+  const picked = [];
+  const poolCopy = [...pool];
+  for (let i = 0; i < count && poolCopy.length; i++) {
+    const idx = Math.floor(seedRng() * poolCopy.length);
+    picked.push(poolCopy[idx]);
+    poolCopy.splice(idx, 1);
+  }
+  const result = {};
+  for (const champ of picked) {
+    result[champ.id] = { proficiency: Math.round(15 + seedRng() * 30), lastPracticedStage: 0 };
+  }
+  return result;
 }

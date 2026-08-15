@@ -21,8 +21,10 @@
   --positive:      #4caf82;
   --negative:      #d9622f;
 
-  --radius-sm: 3px;
-  --radius-md: 6px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+
+  --accent-warm: #e8a33d; /* 第三色：暖金，用在稀有標籤/版本英雄這類「亮點」上，避免整體只有紅黑太單調 */
 
   --font-display: 'Barlow Condensed', 'Noto Sans TC', sans-serif;
   --font-body: 'Noto Sans TC', -apple-system, sans-serif;
@@ -81,10 +83,11 @@ body {
 
 /* ---------------- Panel ---------------- */
 .panel {
-  background: var(--bg-panel);
+  background: linear-gradient(165deg, var(--bg-panel) 0%, var(--bg-panel-alt) 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 24px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 .panel + .panel { margin-top: 16px; }
 .small-panel { flex: 1; }
@@ -143,7 +146,7 @@ body {
   transition: all 0.15s ease;
 }
 .chip:hover { border-color: var(--accent-dim); color: var(--text-primary); }
-.chip.active { background: var(--accent); border-color: var(--accent); color: #f8eaea; font-weight: 600; }
+.chip.active { background: linear-gradient(180deg, #ff2a52, var(--accent)); border-color: var(--accent); color: #f8eaea; font-weight: 600; box-shadow: 0 3px 10px rgba(228,3,46,0.3); }
 
 .seed-row { display: flex; gap: 8px; margin-top: 18px; }
 .seed-row .text-input { flex: 1; }
@@ -158,13 +161,14 @@ body {
   transition: all 0.15s ease;
 }
 .btn-primary {
-  background: var(--accent);
+  background: linear-gradient(180deg, #ff2a52, var(--accent));
   color: #f8eaea;
   border: 1px solid var(--accent);
   font-size: 17px;
-  padding: 13px 20px;
+  padding: 13px 22px;
+  box-shadow: 0 4px 14px rgba(228, 3, 46, 0.35), inset 0 1px 0 rgba(255,255,255,0.12);
 }
-.btn-primary:hover { background: #f2b458; }
+.btn-primary:hover { background: linear-gradient(180deg, #ff4468, #f01c3e); box-shadow: 0 6px 18px rgba(228, 3, 46, 0.45); }
 .btn-block { width: 100%; margin-top: 24px; }
 .btn-ghost {
   background: transparent;
@@ -248,7 +252,7 @@ body {
 }
 .talent-tag b { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.02em; }
 .talent-tag span { color: var(--text-secondary); }
-.talent-tag.rarity-legendary { border-left-color: var(--accent); }
+.talent-tag.rarity-legendary { border-left-color: var(--accent-warm); }
 .talent-tag.rarity-rare { border-left-color: var(--accent-2); }
 .empty-hint { color: var(--text-faint); font-size: 13px; }
 .empty-hint-inline { color: var(--text-faint); font-size: 13px; }
@@ -303,7 +307,7 @@ body {
   color: var(--text-secondary);
 }
 .badge-starter { border-color: var(--positive); color: var(--positive); }
-.badge-rotation { border-color: var(--accent); color: var(--accent); }
+.badge-rotation { border-color: var(--accent-warm); color: var(--accent-warm); }
 .badge-bench { border-color: var(--negative); color: var(--negative); }
 
 .injury-list { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -312,7 +316,7 @@ body {
   color: var(--negative); padding: 4px 8px; border-radius: 2px;
 }
 
-.dash-main { padding: 28px 32px 60px; max-width: 760px; }
+.dash-main { padding: 28px 32px 60px; max-width: 1180px; }
 .ticker {
   display: flex; align-items: baseline; gap: 14px;
   border-bottom: 2px solid var(--accent);
@@ -330,14 +334,15 @@ body {
 .train-controls { display: flex; gap: 8px; margin-bottom: 14px; }
 .train-controls select { flex: 1; }
 .champion-list { display: flex; flex-direction: column; gap: 10px; }
-.meta-champion-list { margin-bottom: 12px; }
+.meta-champion-list { display: flex; flex-direction: column; gap: 14px; }
+.meta-champ-group { margin-bottom: 0; }
 .meta-champ-title { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; letter-spacing: 0.05em; }
 .meta-champ-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .meta-champ-chip {
-  font-size: 12px; padding: 3px 9px; border-radius: 2px;
+  font-size: 12px; padding: 3px 9px; border-radius: 20px;
   border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg-inset);
 }
-.meta-champ-chip.owned { border-color: var(--accent); color: var(--accent); }
+.meta-champ-chip.owned { border-color: var(--accent-warm); color: var(--accent-warm); }
 .champ-row { display: grid; grid-template-columns: 120px 1fr 34px; align-items: center; gap: 10px; }
 .champ-name { font-size: 13px; color: var(--text-secondary); }
 .meta-tag {
@@ -475,6 +480,11 @@ body {
 .dice-result.pass { color: var(--positive); }
 .dice-result.fail { color: var(--negative); }
 
+.dash-columns { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
+.dash-col-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.dash-col-side { display: flex; flex-direction: column; gap: 16px; }
+.dash-col-side .meta-champion-list { margin-bottom: 0; }
+
 /* ---------------- Responsive ---------------- */
 @media (max-width: 780px) {
   .dash-grid { grid-template-columns: 1fr; }
@@ -482,6 +492,7 @@ body {
   .rail-block { flex: 1 1 200px; }
   .dash-main { padding: 22px 16px 60px; }
   .panel-row { flex-direction: column; }
+  .dash-columns { grid-template-columns: 1fr; }
   .masthead h1 { font-size: 32px; }
 }
 

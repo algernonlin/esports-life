@@ -33,7 +33,7 @@ export function applyEffects(character, effects = [], log = []) {
         if (eff.stat === "心態" && character.talents?.some((t) => t.id === "emotional_stability")) {
           delta *= 0.8;
         }
-        character.dynamic[eff.stat] = clamp((character.dynamic[eff.stat] ?? 50) + delta, 0, 100);
+        character.dynamic[eff.stat] = clamp(Math.round((character.dynamic[eff.stat] ?? 50) + delta), 0, 100);
         break;
       }
       case "fame_delta": {
@@ -67,6 +67,38 @@ export function applyEffects(character, effects = [], log = []) {
         console.warn("未知的 effect type：", eff.type);
     }
   }
-  if (log && effects.length) log.push({ effects, year: character.meta.careerYear, stage: character.meta.currentStageName });
   return character;
+}
+
+// -------------------------------------------------------------
+// 效果摘要：把一組effects轉成人看得懂的文字，例如「反應+3、心態-5、知名度+2」
+// 給事件log顯示用，flag/受傷這類非數值效果不列入
+// -------------------------------------------------------------
+const TEAM_STAT_LABELS = { chemistry: "化學反應", favor: "隊伍好感度", reputation: "媒體評價" };
+const COUNTER_LABELS = { money: "獎金" };
+
+export function summarizeEffects(effects = []) {
+  const parts = [];
+  const sign = (v) => (v >= 0 ? "+" : "") + v;
+  for (const eff of effects) {
+    switch (eff.type) {
+      case "stat_delta":
+      case "personality_delta":
+      case "dynamic_delta":
+        parts.push(`${eff.stat}${sign(eff.value)}`);
+        break;
+      case "fame_delta":
+        parts.push(`知名度${sign(eff.value)}`);
+        break;
+      case "team_delta":
+        parts.push(`${TEAM_STAT_LABELS[eff.stat] ?? eff.stat}${sign(eff.value)}`);
+        break;
+      case "career_counter_delta":
+        parts.push(`${COUNTER_LABELS[eff.counter] ?? eff.counter}${sign(eff.value)}`);
+        break;
+      default:
+        break; // flag_set / flag_clear / add_injury 不是數值變化，不列入摘要
+    }
+  }
+  return parts.join("、");
 }
