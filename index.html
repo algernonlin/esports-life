@@ -115,7 +115,7 @@
 
 <!-- ============ SCREEN 4：生涯主畫面 ============ -->
 <section id="screen-dashboard" class="screen">
-  <div class="dash-grid-3col">
+  <div class="dash-grid-2col">
     <aside class="rail-left">
       <div class="rail-id">
         <span class="eyebrow">PLAYER</span>
@@ -153,6 +153,16 @@
         <div id="dash-injuries" class="injury-list"></div>
       </div>
 
+      <div class="rail-block">
+        <h3 class="section-title small">個人熟練度前五英雄</h3>
+        <div id="champion-list" class="champion-list"></div>
+      </div>
+
+      <div class="rail-block">
+        <h3 class="section-title small">本賽段版本英雄</h3>
+        <div id="meta-champion-list" class="meta-champion-list"></div>
+      </div>
+
       <button id="btn-new-career" class="btn-ghost btn-block" style="margin-top:auto;">刪除存檔，重新開始</button>
     </aside>
 
@@ -164,14 +174,22 @@
 
       <div class="panel">
         <h3 class="section-title small">生涯數據</h3>
-        <div class="team-stat-list">
-          <div class="team-stat"><span>知名度</span><span class="mono" id="dash-fame">—</span></div>
-          <div class="team-stat"><span>戰績</span><span class="mono" id="dash-record">—</span></div>
-          <div class="team-stat"><span>K / D / A</span><span class="mono" id="dash-kda">—</span></div>
-          <div class="team-stat"><span>場均 K/D/A</span><span class="mono" id="dash-avg">—</span></div>
-          <div class="team-stat"><span>MVP次數</span><span class="mono" id="dash-mvp">—</span></div>
-          <div class="team-stat"><span>生涯薪資(萬)</span><span class="mono" id="dash-salary">—</span></div>
+        <div class="career-tiles">
+          <div class="career-tile">
+            <span class="career-tile-value mono" id="dash-fame">—</span>
+            <span class="career-tile-label">知名度</span>
+          </div>
+          <div class="career-tile">
+            <span class="career-tile-value mono" id="dash-record">—</span>
+            <span class="career-tile-label">戰績</span>
+          </div>
+          <div class="career-tile">
+            <span class="career-tile-value mono" id="dash-kda-ratio">—</span>
+            <span class="career-tile-label">KDA</span>
+          </div>
         </div>
+        <div class="career-detail-line mono" id="dash-kda-detail">—</div>
+        <div class="career-detail-line mono" id="dash-mvp-salary">—</div>
         <details class="honors-collapse">
           <summary>生涯榮譽</summary>
           <div id="honors-list" class="team-stat-list"></div>
@@ -206,18 +224,6 @@
         </div>
       </div>
     </main>
-
-    <aside class="rail-right">
-      <div class="rail-block">
-        <h3 class="section-title small">個人熟練度前五英雄</h3>
-        <div id="champion-list" class="champion-list"></div>
-      </div>
-
-      <div class="rail-block">
-        <h3 class="section-title small">本賽段版本英雄</h3>
-        <div id="meta-champion-list" class="meta-champion-list"></div>
-      </div>
-    </aside>
   </div>
 </section>
 

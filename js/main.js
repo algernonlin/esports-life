@@ -268,11 +268,10 @@ function renderDashboard() {
   `;
   el("dash-fame").textContent = Math.round(character.fame);
   const cs = computeCareerStats(character);
-  el("dash-record").textContent = `${cs.wins}勝 ${cs.losses}敗（出場 ${cs.appearances}）`;
-  el("dash-kda").textContent = `${cs.kills} / ${cs.deaths} / ${cs.assists}　(KDA ${cs.kda})`;
-  el("dash-avg").textContent = `場均 ${cs.avgKills} / ${cs.avgDeaths} / ${cs.avgAssists}`;
-  el("dash-mvp").textContent = `${cs.mvps} 次`;
-  el("dash-salary").textContent = character.careerCounters.money.toLocaleString();
+  el("dash-record").textContent = `${cs.wins}勝${cs.losses}敗`;
+  el("dash-kda-ratio").textContent = cs.kda;
+  el("dash-kda-detail").textContent = `K/D/A ${cs.kills}/${cs.deaths}/${cs.assists}（場均 ${cs.avgKills}/${cs.avgDeaths}/${cs.avgAssists}）`;
+  el("dash-mvp-salary").textContent = `MVP ${cs.mvps}次　生涯薪資 ${character.careerCounters.money.toLocaleString()}萬`;
 
   renderHonors();
 
