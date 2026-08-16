@@ -168,26 +168,26 @@ function statBarHtml(key, value) {
 // ---------------- Screen 2: 隊伍邀請 ----------------
 function renderInvitations() {
   const rows = evaluateInvitations(character, runtimeRng);
+  const invitedRows = rows.filter((r) => r.invited); // 只展示真的發出邀請的隊伍
 
-  el("invitation-list").innerHTML = rows.map((r) => `
-    <div class="invite-row ${r.invited ? "invited" : "declined"}">
+  el("invitation-list").innerHTML = invitedRows.map((r) => `
+    <div class="invite-row invited">
       <div class="invite-team">
         <span class="invite-name">${r.team.name}</span>
         <span class="invite-strength mono">該路戰力 ${r.team.positionStrength[character.meta.position]}</span>
       </div>
-      <div class="invite-status">${r.invited ? (r.guaranteed ? "邀請你加入（先從替補做起）" : "一軍正式邀請") : "暫無邀約"}</div>
-      ${r.invited ? `<button class="btn-small" data-team="${r.team.name}">加入</button>` : ""}
+      <div class="invite-status">${r.guaranteed ? "邀請你加入" : "一軍正式邀請"}</div>
+      <button class="btn-small" data-team="${r.team.name}">加入</button>
     </div>
   `).join("");
 
   el("invitation-list").querySelectorAll("button[data-team]").forEach((b) =>
     b.addEventListener("click", () => {
-      const row = rows.find((r) => r.team.name === b.dataset.team);
+      const row = invitedRows.find((r) => r.team.name === b.dataset.team);
       const t = row.team;
       character.team = { ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength, reputation: t.reputation };
       character.team.contractSalary = computeContractSalary(character, t);
       character.meta.teamName = t.name;
-      if (row.guaranteed) character.rosterStatus = "bench"; // 實力還沒到位，直接統一從替補開始
       startCareer();
     })
   );
@@ -562,7 +562,7 @@ function showFreeAgencyPrompt() {
   el("dice-area").classList.remove("show");
   el("event-choices").classList.remove("hidden");
   el("event-choices").innerHTML = rows.map((r) =>
-    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${r.team.region}・該路戰力 ${r.team.positionStrength[character.meta.position]}）${r.guaranteed ? "・先從替補做起" : ""}</button>`
+    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${r.team.region}・該路戰力 ${r.team.positionStrength[character.meta.position]}）${r.guaranteed ? "・保底邀請" : ""}</button>`
   ).join("");
   el("event-modal").classList.add("open");
 

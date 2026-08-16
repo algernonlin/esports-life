@@ -10,9 +10,11 @@ const RARITY_WEIGHT = { common: 70, rare: 25, legendary: 5 };
 export function rollStats(seedRng, position) {
   const stats = {};
   for (const key of STAT_KEYS) {
-    stats[key] = gaussianRandom(seedRng, 50, 15);
+    // 開局分布從 mean50/std15 收斂到 mean48/std13：先發判定改成拿「該路需求」比對後比較容易達標，
+    // 開局要稍微壓低極端高分的機率，避免變成每個角色隨便都能一開局就先發
+    stats[key] = gaussianRandom(seedRng, 48, 13);
   }
-  stats[POSITION_SPECIALTY[position]] = gaussianRandom(seedRng, 52, 15);
+  stats[POSITION_SPECIALTY[position]] = gaussianRandom(seedRng, 50, 13);
   return stats;
 }
 

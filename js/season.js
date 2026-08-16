@@ -32,11 +32,13 @@ export function checkQualification(character, conditionKey) {
 // -------------------------------------------------------------
 export function evaluateRosterStatus(character) {
   const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
-  const teamNeed = character.team.baseStrength;
+  const positionNeed = character.team.positionStrength?.[character.meta.position] ?? character.team.baseStrength;
   const favor = character.team.favor;
 
-  if (statAvg >= teamNeed && favor >= 40) return "starter";
-  if (statAvg >= teamNeed * 0.85) return "rotation";
+  // 先發：能力值超過該路門檻的85%且好感度夠 —— 或者能力值直接超過該路完整門檻(不需要好感度加持)
+  // 這樣換隊時如果你真的夠強，不會被「新隊伍還不信任你」卡住，馬上就能打先發
+  if ((statAvg >= positionNeed * 0.85 && favor >= 40) || statAvg >= positionNeed) return "starter";
+  if (statAvg >= positionNeed * 0.8) return "rotation";
   return "bench";
 }
 
