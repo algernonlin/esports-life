@@ -3,7 +3,7 @@
 // 個人表現與隊伍勝負分開計算，才會出現「carry但輸」的狀況
 // ============================================================
 import { META_VERSIONS, POSITION_SPECIALTY, POSITIONS } from "./state.js";
-import { clamp, randomRange, runtimeRng } from "./rng.js";
+import { clamp, randomRange, runtimeRng, gaussianRandom } from "./rng.js";
 import { pickMatchChampionFit } from "./champions.js";
 
 function sigmoid(x) {
@@ -153,20 +153,83 @@ export function computeMatchWinProbability(character, opponentTeam, matchContext
   return { winProb, fullContext, advantage };
 }
 
-export function resolveMatchWithResult(character, fullContext, win, runtimeRng) {
+// -------------------------------------------------------------
+// 各位置的K/D/A基準比重：輔助殺少助攻多，ADC/中路殺多助攻少，符合各路真實定位
+// -------------------------------------------------------------
+const POSITION_KDA_PROFILE = {
+  "上路": { killMult: 1.0, assistMult: 0.85, deathMult: 1.0 },
+  "打野": { killMult: 0.9, assistMult: 1.3, deathMult: 1.0 },
+  "中路": { killMult: 1.2, assistMult: 0.9, deathMult: 0.95 },
+  "ADC":  { killMult: 1.3, assistMult: 0.8, deathMult: 0.85 },
+  "輔助": { killMult: 0.4, assistMult: 1.8, deathMult: 1.15 },
+};
+
+// 神經刀決定的場次浮動：不是平滑地讓數字大小差一點，是「神經刀高的人有機率打出極端場」——
+// 要嘛神仙場(爆殺爆助攻幾乎不死)，要嘛送頭場(死好幾次)，神經刀低的人幾乎不會觸發極端場，
+// 但仍保留一個基本浮動下限，避免每場數字幾乎一樣
+
+// -------------------------------------------------------------
+// 先算整場比賽雙方的團隊擊殺總數（比分懸殊程度跟隊伍實力差距/勝率掛鉤），
+// 再依位置權重+個人表現，把這個總數分配到玩家身上——
+// 這樣「隊伍打崩對手」時，就算是穩健(低神經刀)的玩家也會自然打出低死亡場，
+// 不再是純粹靠個人神經刀決定KDA，比較貼近真實比賽的比分邏輯
+// -------------------------------------------------------------
+function simulateTeamKillSplit(winProb, rng) {
+  // 真實比賽的單場總擊殺數呈常態分布：均值約29、標準差約8
+  // (68%落在20~40之間、95%落在15~45之間，極端場<15或>45很少見)
+  const totalKills = gaussianRandom(rng, 29, 8, 8, 55);
+  // 勝率越極端，比分越懸殊；勝率接近50%時比分接近對半
+  const skew = clamp(0.5 + (winProb - 0.5) * 1.3, 0.1, 0.9);
+  const myTeamKills = Math.round(totalKills * skew);
+  const oppTeamKills = totalKills - myTeamKills; // 對方的擊殺數 = 我方要承受的團隊總死亡數
+  return { myTeamKills, oppTeamKills };
+}
+
+// 把團隊總數依位置權重+個人表現分配到玩家身上
+function allocateToPlayer(totalAmount, myPos, metaWeights, perfFactor, profileKey, character) {
+  const shares = POSITIONS.map((pos) => {
+    const posWeight = metaWeights[pos] ?? 0.2;
+    const profileMult = POSITION_KDA_PROFILE[pos]?.[profileKey] ?? 1;
+    let weight = posWeight * profileMult;
+    if (pos === myPos) weight *= perfFactor;
+    return weight;
+  });
+  const totalWeight = shares.reduce((a, b) => a + b, 0) || 1;
+  const myShare = shares[POSITIONS.indexOf(myPos)] / totalWeight;
+  return Math.max(0, Math.round(totalAmount * myShare));
+}
+
+export function resolveMatchWithResult(character, fullContext, win, runtimeRng, winProb = 0.5) {
   // 世一XX的連勝/連敗持續累積，這裡統一更新（用這場「之前」的streak去影響這場表現，這場結果再更新給下一場用）
   character.matchStreak = win
     ? Math.max(1, (character.matchStreak ?? 0) + 1)
     : Math.min(-1, (character.matchStreak ?? 0) - 1);
 
-  // 個人 KDA：跟隊伍勝負分開算，允許 carry-but-lose
   const perf = personalPerformance(character, fullContext);
-  const neuro = character.personality["神經刀"] / 100;
-  const variance = 1 + (runtimeRng() - 0.5) * 2 * neuro;
+  const myPos = character.meta.position;
+  const metaWeights = META_VERSIONS[character.seasonRecord.currentMeta] ?? META_VERSIONS["均衡版本"];
 
-  const kills = Math.max(0, Math.round((perf / 12) * variance));
-  const deaths = Math.max(0, Math.round(((100 - perf) / 20) * (1 / Math.max(variance, 0.3))));
-  const assists = Math.max(0, Math.round((perf / 8) * variance));
+  // 1. 先決定整場比賽雙方的團隊擊殺總數（比分懸殊程度跟勝率掛鉤）
+  const { myTeamKills, oppTeamKills } = simulateTeamKillSplit(winProb, runtimeRng);
+
+  // 2. 我方團隊擊殺總數，分配出「我個人的擊殺」；對方擊殺總數(=我方死亡)，分配出「我個人的死亡」
+  const killPerfFactor = clamp(perf / 50, 0.4, 2.2);
+  const deathPerfFactor = clamp((100 - perf) / 50, 0.4, 2.2);
+  let kills = allocateToPlayer(myTeamKills, myPos, metaWeights, killPerfFactor, "killMult", character);
+  let deaths = allocateToPlayer(oppTeamKills, myPos, metaWeights, deathPerfFactor, "deathMult", character);
+
+  // 3. 助攻：從我方團隊擊殺數推算助攻池(每次擊殺平均帶來約1.8~2.6次助攻分配給隊友)，再分配
+  const assistPool = myTeamKills * (1.8 + runtimeRng() * 0.8);
+  const assistPerfFactor = clamp(perf / 50, 0.5, 1.8);
+  let assists = allocateToPlayer(assistPool, myPos, metaWeights, assistPerfFactor, "assistMult", character);
+
+  // 4. 神經刀在這個既定戰局下，再加一層「個人這場手感好壞」的小幅浮動（不再是唯一決定因素）
+  const neuro = (character.personality["神經刀"] ?? 30) / 100;
+  const personalNoise = 1 + (runtimeRng() - 0.5) * 2 * (0.1 + neuro * 0.3);
+  kills = Math.max(0, Math.round(kills * personalNoise));
+  assists = Math.max(0, Math.round(assists * personalNoise));
+  deaths = Math.max(0, Math.round(deaths / Math.max(personalNoise, 0.4)));
+
   const kda = deaths === 0 ? kills + assists : (kills + assists) / deaths;
 
   const carryButLose = !win && perf >= 70;
@@ -179,5 +242,5 @@ export function resolveMatchWithResult(character, fullContext, win, runtimeRng) 
 export function simulateMatch(character, opponentTeam, matchContext = {}, runtimeRng) {
   const { winProb, fullContext } = computeMatchWinProbability(character, opponentTeam, matchContext, runtimeRng);
   const win = runtimeRng() < winProb;
-  return resolveMatchWithResult(character, fullContext, win, runtimeRng);
+  return resolveMatchWithResult(character, fullContext, win, runtimeRng, winProb);
 }

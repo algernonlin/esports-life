@@ -404,6 +404,18 @@ body {
   font-size: 12px; color: var(--text-secondary);
   margin-top: 10px;
 }
+.career-detail-section { margin-top: 16px; }
+.career-detail-section:first-child { margin-top: 12px; }
+.career-detail-title {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em;
+  color: var(--accent-warm); text-transform: uppercase; margin: 0 0 8px;
+}
+.yearly-history-list { display: flex; flex-direction: column; gap: 6px; }
+.yearly-history-row {
+  font-size: 12px; color: var(--text-secondary);
+  padding: 6px 0; border-bottom: 1px solid var(--border-soft);
+}
+.yearly-history-row .yh-year { color: var(--text-primary); font-family: var(--font-mono); margin-right: 8px; }
 
 .champion-list { display: flex; flex-direction: column; gap: 10px; }
 .meta-champion-list { display: flex; flex-direction: column; gap: 14px; }

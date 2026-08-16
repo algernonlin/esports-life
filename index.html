@@ -180,19 +180,39 @@
             <span class="career-tile-label">知名度</span>
           </div>
           <div class="career-tile">
-            <span class="career-tile-value mono" id="dash-record">—</span>
-            <span class="career-tile-label">戰績</span>
+            <span class="career-tile-value mono" id="dash-total-income">—</span>
+            <span class="career-tile-label">總收入(萬)</span>
           </div>
           <div class="career-tile">
-            <span class="career-tile-value mono" id="dash-kda-ratio">—</span>
-            <span class="career-tile-label">KDA</span>
+            <span class="career-tile-value mono" id="dash-contract-expiry">—</span>
+            <span class="career-tile-label">合約到期</span>
           </div>
         </div>
-        <div class="career-detail-line mono" id="dash-kda-detail">—</div>
-        <div class="career-detail-line mono" id="dash-mvp-salary">—</div>
+
         <details class="honors-collapse">
-          <summary>生涯榮譽</summary>
-          <div id="honors-list" class="team-stat-list"></div>
+          <summary>詳情</summary>
+          <div class="career-detail-section">
+            <h4 class="career-detail-title">生涯成就</h4>
+            <div class="team-stat-list">
+              <div class="team-stat"><span>戰績</span><span class="mono" id="dash-record">—</span></div>
+              <div class="team-stat"><span>K/D/A</span><span class="mono" id="dash-kda-detail">—</span></div>
+              <div class="team-stat"><span>MVP次數</span><span class="mono" id="dash-mvp">—</span></div>
+            </div>
+            <div id="honors-list" class="team-stat-list" style="margin-top:8px;"></div>
+          </div>
+          <div class="career-detail-section">
+            <h4 class="career-detail-title">薪資合約</h4>
+            <div class="team-stat-list">
+              <div class="team-stat"><span>現行合約</span><span class="mono" id="dash-contract-info">—</span></div>
+              <div class="team-stat"><span>薪資累計</span><span class="mono" id="dash-salary-income">—</span></div>
+              <div class="team-stat"><span>獎金累計</span><span class="mono" id="dash-prize-income">—</span></div>
+              <div class="team-stat"><span>其他收入</span><span class="mono" id="dash-other-income">—</span></div>
+            </div>
+          </div>
+          <div class="career-detail-section">
+            <h4 class="career-detail-title">逐年戰績</h4>
+            <div id="yearly-history-list" class="yearly-history-list"></div>
+          </div>
         </details>
       </div>
 
@@ -256,7 +276,7 @@
           <div class="share-stat"><span class="share-stat-label">助攻 / 場均</span><span class="share-stat-value mono" id="stat-assists">—</span></div>
           <div class="share-stat"><span class="share-stat-label">死亡 / 場均</span><span class="share-stat-value mono" id="stat-deaths">—</span></div>
           <div class="share-stat"><span class="share-stat-label">知名度</span><span class="share-stat-value mono" id="stat-fame">—</span></div>
-          <div class="share-stat"><span class="share-stat-label">生涯薪資(萬)</span><span class="share-stat-value mono" id="stat-salary">—</span></div>
+          <div class="share-stat"><span class="share-stat-label">生涯總收入(萬)</span><span class="share-stat-value mono" id="stat-salary">—</span></div>
         </div>
 
         <div class="share-honors" id="share-honors"></div>

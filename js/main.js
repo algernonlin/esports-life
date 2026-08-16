@@ -19,6 +19,7 @@ import {
   evaluateInvitations, grantTrainingPoints, tickChampionDecay, pickTradeDestination,
   evaluateContractRenewal, trainCoreStat, paySalary, evaluateStageHonors, evaluateYearEndHonors,
   computeContractSalary, buildInternationalOpponentPool, applyGameResult, rollFinalsMVP,
+  previewContract, computePrizeMoney, snapshotYearRecord,
 } from "./season.js";
 import { checkMilestones } from "./achievements.js";
 import { rollInjuryChance, tickInjuries } from "./injuries.js";
@@ -203,13 +204,13 @@ function statBarHtml(key, value) {
 // ---------------- Screen 2: 隊伍邀請 ----------------
 function renderInvitations() {
   const rows = evaluateInvitations(character, runtimeRng);
-  const invitedRows = rows.filter((r) => r.invited); // 只展示真的發出邀請的隊伍
+  const invitedRows = rows.filter((r) => r.invited).map((r) => ({ ...r, contract: previewContract(character, r.team, runtimeRng) })); // 只展示真的發出邀請的隊伍，並先預覽合約內容
 
   el("invitation-list").innerHTML = invitedRows.map((r) => `
     <div class="invite-row invited">
       <div class="invite-team">
         <span class="invite-name">${r.team.name}</span>
-        <span class="invite-strength mono">該路戰力 ${r.team.positionStrength[character.meta.position]}</span>
+        <span class="invite-strength mono">該路戰力 ${r.team.positionStrength[character.meta.position]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬</span>
       </div>
       <div class="invite-status">${r.guaranteed ? "邀請你加入" : "一軍正式邀請"}</div>
       <button class="btn-small" data-team="${r.team.name}">加入</button>
@@ -221,7 +222,8 @@ function renderInvitations() {
       const row = invitedRows.find((r) => r.team.name === b.dataset.team);
       const t = row.team;
       character.team = { ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength, reputation: t.reputation };
-      character.team.contractSalary = computeContractSalary(character, t);
+      character.team.contractYears = row.contract.years;
+      character.team.contractSalary = row.contract.annualSalary;
       character.meta.teamName = t.name;
       startCareer();
     })
@@ -268,10 +270,29 @@ function renderDashboard() {
   `;
   el("dash-fame").textContent = Math.round(character.fame);
   const cs = computeCareerStats(character);
+  const cc = character.careerCounters;
+  const totalIncome = (cc.salaryIncome ?? 0) + (cc.prizeMoney ?? 0) + (cc.otherIncome ?? 0);
+  el("dash-total-income").textContent = totalIncome.toLocaleString();
+  el("dash-contract-expiry").textContent = `${character.meta.careerYear + character.team.contractYears}`;
+
   el("dash-record").textContent = `${cs.wins}勝${cs.losses}敗`;
-  el("dash-kda-ratio").textContent = cs.kda;
-  el("dash-kda-detail").textContent = `K/D/A ${cs.kills}/${cs.deaths}/${cs.assists}（場均 ${cs.avgKills}/${cs.avgDeaths}/${cs.avgAssists}）`;
-  el("dash-mvp-salary").textContent = `MVP ${cs.mvps}次　生涯薪資 ${character.careerCounters.money.toLocaleString()}萬`;
+  el("dash-kda-detail").textContent = `${cs.kills}/${cs.deaths}/${cs.assists}（KDA ${cs.kda}，場均 ${cs.avgKills}/${cs.avgDeaths}/${cs.avgAssists}）`;
+  el("dash-mvp").textContent = `${cs.mvps} 次`;
+  el("dash-contract-info").textContent = `${character.team.contractYears}年約・年薪${character.team.contractSalary.toLocaleString()}萬`;
+  el("dash-salary-income").textContent = `${(cc.salaryIncome ?? 0).toLocaleString()}萬`;
+  el("dash-prize-income").textContent = `${(cc.prizeMoney ?? 0).toLocaleString()}萬`;
+  el("dash-other-income").textContent = `${(cc.otherIncome ?? 0).toLocaleString()}萬`;
+
+  el("yearly-history-list").innerHTML = character.yearlyHistory.length
+    ? character.yearlyHistory.slice().reverse().map((y) => {
+        const stageResults = [y.stage1, y.stage2, y.stage3]
+          .map((s, i) => s.playoffResult ? `第${i + 1}賽段${s.playoffResult}` : null)
+          .filter(Boolean).join("、");
+        const intlResults = y.international.map((e) => `${e.name}${e.result}`).join("、");
+        const summary = [stageResults, intlResults].filter(Boolean).join("、") || "尚無季後賽戰績";
+        return `<div class="yearly-history-row"><span class="yh-year">${y.year}年 ${y.age}歲</span>${y.team}(${y.region})：${summary}</div>`;
+      }).join("")
+    : `<div class="empty-hint-inline">還沒有完整打過一年</div>`;
 
   renderHonors();
 
@@ -358,7 +379,7 @@ function renderSummary() {
   el("stat-assists").textContent = `${cs.assists} / ${cs.avgAssists}`;
   el("stat-deaths").textContent = `${cs.deaths} / ${cs.avgDeaths}`;
   el("stat-fame").textContent = Math.round(c.fame);
-  el("stat-salary").textContent = c.careerCounters.money.toLocaleString();
+  el("stat-salary").textContent = ((c.careerCounters.salaryIncome ?? 0) + (c.careerCounters.prizeMoney ?? 0) + (c.careerCounters.otherIncome ?? 0)).toLocaleString();
 
   const honorLabels = [
     ["🏆賽區冠軍", c.careerCounters.domesticTitles],
@@ -497,6 +518,7 @@ function advance() {
   } else if (stageType === "offseason_long") {
     tickInjuries(character, runtimeRng);
     applyAgeDecay(character, runtimeRng);
+    snapshotYearRecord(character); // 存這年的逐年戰績快照，要在seasonRecord跨年重置前呼叫
     const yearHonors = evaluateYearEndHonors(character);
     if (yearHonors.yearEndMVP) pushLog(`🏆 榮獲年度常規賽MVP！`);
     else if (yearHonors.yearEndBestPosition) pushLog(`⭐ 入選年度賽區最佳${character.meta.position}。`);
@@ -525,15 +547,18 @@ function runInteractivePlayoff(isInternational, onComplete) {
   function playSeries(isFinal, seriesDone) {
     let wins = 0, losses = 0;
 
+    // 對手整個系列賽(BO5)只抽一次，不是每場重抽——原本每場重新抽對手是bug，
+    // 導致一輪四強賽打了好幾支不同隊伍，這裡改成賽前先確定對手，全系列打同一支
+    const opponent = opponentPool.length
+      ? pickWeighted(runtimeRng, opponentPool.map((t) => ({ ...t, weight: t.baseStrength })))
+      : null;
+    const opponentTeam = opponent ?? { baseStrength: character.team.baseStrength, positionStrength: {} };
+
     function playNextGame() {
       const isDecidingGame = wins === 2 && losses === 2;
       const showDice = isFinal || isDecidingGame;
       const seriesGameIndex = wins + losses;
 
-      const opponent = opponentPool.length
-        ? pickWeighted(runtimeRng, opponentPool.map((t) => ({ ...t, weight: t.baseStrength })))
-        : null;
-      const opponentTeam = opponent ?? { baseStrength: character.team.baseStrength, positionStrength: {} };
       const matchContext = { isMajorEvent: true, isInternational, isDecidingGame, seriesGameIndex };
       const { winProb, fullContext } = computeMatchWinProbability(character, opponentTeam, matchContext, runtimeRng);
 
@@ -550,7 +575,7 @@ function runInteractivePlayoff(isInternational, onComplete) {
         const roll = rollTwoDice(runtimeRng);
         const { target, prob: actualProb } = probabilityToTarget(winProb);
         const passed = roll.sum >= target;
-        const result = resolveMatchWithResult(character, fullContext, passed, runtimeRng);
+        const result = resolveMatchWithResult(character, fullContext, passed, runtimeRng, winProb);
         const moment = rollMatchMoment(runtimeRng);
 
         el("event-title").textContent = `${isFinal ? "冠軍賽" : "四強賽"} 第${seriesGameIndex + 1}場 vs ${opponent?.name ?? "未知隊伍"}`;
@@ -569,7 +594,7 @@ function runInteractivePlayoff(isInternational, onComplete) {
         );
       } else {
         const win = runtimeRng() < winProb;
-        const result = resolveMatchWithResult(character, fullContext, win, runtimeRng);
+        const result = resolveMatchWithResult(character, fullContext, win, runtimeRng, winProb);
         afterGame(result);
       }
     }
@@ -583,12 +608,18 @@ function runInteractivePlayoff(isInternational, onComplete) {
         if (isInternational) character.careerCounters.internationalTitles++;
         else character.careerCounters.domesticTitles++;
         const gotFmvp = rollFinalsMVP(character, runtimeRng);
-        pushLog(`🏆 拿下冠軍！${gotFmvp ? "並獲選FMVP！" : ""}`);
+        const prize = computePrizeMoney(character, isInternational, character.meta.currentStageName, "冠軍");
+        character.careerCounters.prizeMoney += prize;
+        const fmvpBonus = isInternational && character.meta.currentStageName === "電競世界盃EWC" && gotFmvp ? 30 : 0;
+        character.careerCounters.prizeMoney += fmvpBonus;
+        pushLog(`🏆 拿下冠軍！${gotFmvp ? "並獲選FMVP！" : ""}獲得獎金 ${(prize + fmvpBonus).toLocaleString()}萬。`);
         onComplete("冠軍");
       } else {
         if (isInternational) character.careerCounters.internationalRunnerUps++;
         else character.careerCounters.domesticRunnerUps++;
-        pushLog(`惜敗，獲得亞軍。`);
+        const prize = computePrizeMoney(character, isInternational, character.meta.currentStageName, "亞軍");
+        character.careerCounters.prizeMoney += prize;
+        pushLog(`惜敗，獲得亞軍，獎金 ${prize.toLocaleString()}萬。`);
         onComplete("亞軍");
       }
     });
@@ -619,6 +650,7 @@ function applyTrade() {
   const oldTeam = character.team.name;
   const oldRegion = character.meta.region;
   const messyExit = character.team.favor < 20; // 對應「魚死網破」曝光劇本
+  const contract = previewContract(character, dest, runtimeRng);
 
   character.team = {
     ...character.team,
@@ -628,19 +660,20 @@ function applyTrade() {
     reputation: dest.reputation,
     chemistry: 50,   // 新隊伍化學反應歸零重新累積
     favor: 50,
-    contractYears: 2,
+    contractYears: contract.years,
   };
-  character.team.contractSalary = computeContractSalary(character, dest);
+  character.team.contractSalary = contract.annualSalary;
   character.meta.teamName = dest.name;
   character.meta.region = dest.region; // 跨賽區轉會：賽區也要跟著更新
 
   const regionNote = dest.region !== oldRegion ? `，並跨賽區轉戰 ${dest.region}` : "";
+  const contractNote = `簽下${contract.years}年約，總價${contract.totalValue.toLocaleString()}萬。`;
   if (messyExit) {
     character.fame = clamp(character.fame + 10, 0, 100); // 話題性上升
     character.team.reputation = clamp(character.team.reputation - 10, 0, 100);
-    pushLog(`從 ${oldTeam} 火爆離隊${regionNote}，私訊「魚死網破，今晚就走」被截圖貼上「最強聯盟」，話題性暴衝但新東家對你多留了個心眼。`);
+    pushLog(`從 ${oldTeam} 火爆離隊${regionNote}，私訊「魚死網破，今晚就走」被截圖貼上「最強聯盟」，話題性暴衝但新東家對你多留了個心眼。${contractNote}`);
   } else {
-    pushLog(`完成轉隊，從 ${oldTeam} 加入 ${dest.name}${regionNote}。`);
+    pushLog(`完成轉隊，從 ${oldTeam} 加入 ${dest.name}${regionNote}，${contractNote}`);
   }
 }
 
@@ -654,10 +687,11 @@ function showContractPrompt(teamWantsRenew) {
   el("event-title").textContent = "合約到期";
   el("dice-area").innerHTML = "";
   el("dice-area").classList.remove("show");
+  const renewContract = previewContract(character, character.team, runtimeRng);
   el("event-choices").classList.remove("hidden");
 
   if (teamWantsRenew) {
-    el("event-text").textContent = `${character.team.name} 對你這幾年的表現滿意，開出2年的續約合約。`;
+    el("event-text").textContent = `${character.team.name} 對你這幾年的表現滿意，開出${renewContract.years}年的續約合約，總價${renewContract.totalValue.toLocaleString()}萬。`;
     el("event-choices").innerHTML = `
       <button class="btn-choice" data-act="renew">接受續約，留在 ${character.team.name}</button>
       <button class="btn-choice" data-act="explore">婉拒，出去看看自由市場</button>`;
@@ -671,9 +705,9 @@ function showContractPrompt(teamWantsRenew) {
     b.addEventListener("click", () => {
       el("event-modal").classList.remove("open");
       if (b.dataset.act === "renew") {
-        character.team.contractYears = 2;
-        character.team.contractSalary = computeContractSalary(character, character.team);
-        pushLog(`與 ${character.team.name} 完成續約，簽下2年新合約，年薪重新議定為 ${character.team.contractSalary.toLocaleString()} 萬。`);
+        character.team.contractYears = renewContract.years;
+        character.team.contractSalary = renewContract.annualSalary;
+        pushLog(`與 ${character.team.name} 完成續約，簽下${renewContract.years}年新合約，年薪 ${renewContract.annualSalary.toLocaleString()}萬。`);
         renderDashboard();
         saveGame();
       } else {
@@ -690,31 +724,33 @@ function showFreeAgencyPrompt() {
     const fallback = evaluateInvitations(character, runtimeRng, true).filter((r) => r.team.name !== character.team.name)[0];
     rows.push(fallback);
   }
+  const offers = rows.map((r) => ({ ...r, contract: previewContract(character, r.team, runtimeRng) }));
+
   el("event-title").textContent = "自由市場";
   el("event-text").textContent = "以下隊伍向你招手（不限賽區），選一支加入：";
   el("dice-area").innerHTML = "";
   el("dice-area").classList.remove("show");
   el("event-choices").classList.remove("hidden");
-  el("event-choices").innerHTML = rows.map((r) =>
-    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${r.team.region}・該路戰力 ${r.team.positionStrength[character.meta.position]}）${r.guaranteed ? "・保底邀請" : ""}</button>`
+  el("event-choices").innerHTML = offers.map((r) =>
+    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${r.team.region}・該路戰力 ${r.team.positionStrength[character.meta.position]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬）${r.guaranteed ? "・保底邀請" : ""}</button>`
   ).join("");
   el("event-modal").classList.add("open");
 
   el("event-choices").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
-      const row = rows.find((r) => r.team.name === b.dataset.team);
+      const row = offers.find((r) => r.team.name === b.dataset.team);
       const t = row.team;
       const oldTeam = character.team.name;
       const oldRegion = character.meta.region;
       character.team = {
         ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength,
-        reputation: t.reputation, chemistry: 50, favor: 50, contractYears: 2,
+        reputation: t.reputation, chemistry: 50, favor: 50, contractYears: row.contract.years,
       };
-      character.team.contractSalary = computeContractSalary(character, t);
+      character.team.contractSalary = row.contract.annualSalary;
       character.meta.teamName = t.name;
       character.meta.region = t.region;
       const regionNote = t.region !== oldRegion ? `，跨賽區轉戰 ${t.region}` : "";
-      pushLog(`合約到期後在自由市場，從 ${oldTeam} 轉會加入 ${t.name}${regionNote}，簽下年薪 ${character.team.contractSalary.toLocaleString()} 萬的新合約。`);
+      pushLog(`合約到期後在自由市場，從 ${oldTeam} 轉會加入 ${t.name}${regionNote}，簽下${row.contract.years}年約，總價${row.contract.totalValue.toLocaleString()}萬。`);
       el("event-modal").classList.remove("open");
       renderDashboard();
       saveGame();

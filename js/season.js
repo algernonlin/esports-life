@@ -120,11 +120,11 @@ export function simulatePlayoff(character, runtimeRng, { isInternational = false
 
   function playSeries() {
     let wins = 0, losses = 0;
+    // 對手整個系列賽只抽一次，不是每場重抽
+    const opponent = opponentPool.length ? pickWeighted(runtimeRng, opponentPool.map((t) => ({ ...t, weight: t.baseStrength }))) : null;
+    const opponentTeam = opponent ?? { baseStrength: character.team.baseStrength, positionStrength: {} };
     for (let i = 0; i < 5; i++) {
       const isDecidingGame = wins === 2 && losses === 2; // BO5打到2:2，第5場就是決勝局
-      // 對手依強度加權抽選，不是均等機率——現實中打進季後賽本身就代表對手多半是有實力的隊伍
-      const opponent = opponentPool.length ? pickWeighted(runtimeRng, opponentPool.map((t) => ({ ...t, weight: t.baseStrength }))) : null;
-      const opponentTeam = opponent ?? { baseStrength: character.team.baseStrength, positionStrength: {} };
       const result = simulateMatch(
         character, opponentTeam,
         { isMajorEvent: true, isInternational, isDecidingGame, seriesGameIndex: i },
@@ -339,6 +339,47 @@ export function computeContractSalary(character, team) {
 }
 
 // -------------------------------------------------------------
+// 合約年限：1-3年隨機，年限影響年薪（短約溢價、長約打折，隊伍求穩換折扣）
+// previewContract：純函式，不寫入character，給邀請/轉隊畫面「先看合約內容再決定」用
+// -------------------------------------------------------------
+const CONTRACT_YEAR_MULTIPLIER = { 1: 1.15, 2: 1.0, 3: 0.9 };
+
+export function rollContractLength(runtimeRng) {
+  const r = runtimeRng();
+  if (r < 0.3) return 1;
+  if (r < 0.75) return 2;
+  return 3;
+}
+
+export function previewContract(character, team, runtimeRng) {
+  const years = rollContractLength(runtimeRng);
+  const annualSalary = Math.round(computeContractSalary(character, team) * CONTRACT_YEAR_MULTIPLIER[years]);
+  return { years, annualSalary, totalValue: annualSalary * years };
+}
+
+// -------------------------------------------------------------
+// 賽事獎金：固定金額，不因個人薪水高低而變動——真實世界的獎金池是固定的，
+// 國內賽區獎金額外乘賽區倍率（沿用薪資的市場倍率邏輯，反映各賽區獎金池規模差異）
+// -------------------------------------------------------------
+const INTERNATIONAL_PRIZE_MONEY = {
+  "S16世界大賽":   { champion: 400, runnerup: 320 },
+  "季中邀請賽":     { champion: 200, runnerup: 120 },
+  "電競世界盃EWC": { champion: 200, runnerup: 120 },
+  "先鋒賽":         { champion: 100, runnerup: 60 },
+};
+const DOMESTIC_PRIZE_BASE = { champion: 30, runnerup: 12 };
+
+export function computePrizeMoney(character, isInternational, eventName, result) {
+  if (result !== "冠軍" && result !== "亞軍") return 0;
+  const key = result === "冠軍" ? "champion" : "runnerup";
+  if (isInternational) {
+    return (INTERNATIONAL_PRIZE_MONEY[eventName]?.[key] ?? 0);
+  }
+  const regionMult = REGION_SALARY_MULTIPLIER[character.meta.region] ?? 1.0;
+  return Math.round(DOMESTIC_PRIZE_BASE[key] * regionMult);
+}
+
+// -------------------------------------------------------------
 // 薪水發放：讀取簽約時鎖定的年薪，依當下先發/輪換/替補狀態打折，
 // 每個賽段發放一次（年薪本身不會變，變的只有出賽狀態的折扣）
 // -------------------------------------------------------------
@@ -348,7 +389,7 @@ export function paySalary(character) {
   const annualSalary = character.team.contractSalary ?? 0;
   const rosterMult = ROSTER_SALARY_MULTIPLIER[character.rosterStatus] ?? 0.3;
   const perStage = Math.round((annualSalary * rosterMult) / SEASON_FLOW.length);
-  character.careerCounters.money = (character.careerCounters.money ?? 0) + perStage;
+  character.careerCounters.salaryIncome = (character.careerCounters.salaryIncome ?? 0) + perStage;
   return perStage;
 }
 
@@ -378,6 +419,24 @@ export function evaluateStageHonors(character, stageMvpCount, gamesPlayed, wins,
 // 年度榮譽結算：一年三個賽段都拿下賽段MVP才夠格「年度常規賽MVP」，
 // 拿到至少2次才夠格「年度賽區最佳(該位置)」。長休賽期年度重置前呼叫。
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// 逐年戰績快照：年底存一筆這年的摘要，供生涯數據「逐年戰績」展開區塊用。
+// 要在 seasonRecord 被跨年重置之前呼叫（長休賽期結束、advanceStage()跨年重置前）
+// -------------------------------------------------------------
+export function snapshotYearRecord(character) {
+  const sr = character.seasonRecord;
+  character.yearlyHistory.push({
+    year: character.meta.careerYear,
+    age: character.meta.age,
+    team: character.team.name,
+    region: character.meta.region,
+    stage1: { ...sr.stage1 },
+    stage2: { ...sr.stage2 },
+    stage3: { ...sr.stage3 },
+    international: sr.qualifiedEvents.map((e) => ({ name: e.name, result: e.result })),
+  });
+}
+
 export function evaluateYearEndHonors(character) {
   const count = character.yearRecord.stageMvpCount;
   const result = { yearEndMVP: false, yearEndBestPosition: false };

@@ -41,11 +41,11 @@ export function runtimeRng() {
 }
 
 // 常態分布近似（Box-Muller），開局能力值用這個比均勻分布更真實
-export function gaussianRandom(rng, mean = 50, stdDev = 15) {
+export function gaussianRandom(rng, mean = 50, stdDev = 15, clampMin = 1, clampMax = 99) {
   const u1 = Math.max(rng(), 1e-9);
   const u2 = rng();
   const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-  return clamp(Math.round(mean + z * stdDev), 1, 99);
+  return clamp(Math.round(mean + z * stdDev), clampMin, clampMax);
 }
 
 export function clamp(v, min, max) {

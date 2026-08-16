@@ -227,6 +227,7 @@ export function createCharacter({ name, position, region, teamName }) {
     matchStreak: 0, // 持續連勝(正)/連敗(負)計數，跨賽段累積，給「世一XX」天賦用
     decline: { totalReactionLoss: 0 }, // 衰退累積量，用來觸發「手感不再」事件
     yearRecord: { stageMvpCount: 0 },  // 年度累積：這年三個賽段裡拿了幾次「賽段MVP」，年底結算年度榮譽用
+    yearlyHistory: [], // 逐年戰績快照，年底存一筆，供生涯數據「逐年戰績」展開區塊用
     fitnessBoost: 0,                    // 訓練點數換來的暫時性衰退減免（消耗型）
     team: {
       name: teamName,
@@ -239,7 +240,9 @@ export function createCharacter({ name, position, region, teamName }) {
       contractSalary: 0, // 簽約當下鎖定的年薪(萬)，換約才會重新算
     },
     careerCounters: {
-      kills: 0, assists: 0, deaths: 0, wins: 0, losses: 0, mvps: 0, worldsAppearances: 0, money: 0,
+      kills: 0, assists: 0, deaths: 0, wins: 0, losses: 0, mvps: 0, worldsAppearances: 0,
+      // 收入拆三類：薪資（合約鎖定）、獎金（賽事名次，固定金額不因人而異）、其他收入（零散事件）
+      salaryIncome: 0, prizeMoney: 0, otherIncome: 0,
       // 生涯榮譽
       domesticTitles: 0, domesticRunnerUps: 0,       // 賽區冠軍/亞軍（例行賽季後賽）
       internationalTitles: 0, internationalRunnerUps: 0, // 國際賽冠軍/亞軍

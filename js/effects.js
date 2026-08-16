@@ -64,10 +64,15 @@ export function applyEffects(character, effects = [], log = []) {
         break;
       }
       case "money_percent": {
-        // 罰款/獎金用「合約年薪的百分比」計算，而不是寫死絕對數字——
-        // 這樣LPL跟LCP選手被罰/賺的痛感/爽感才會等比例，不會因為賽區薪資差距而失真
+        // 罰款/獎金用「合約年薪的百分比」計算，category決定算進哪一類收入
         const amount = Math.round((character.team.contractSalary ?? 0) * eff.value);
-        character.careerCounters.money = (character.careerCounters.money ?? 0) + amount;
+        const cat = eff.category === "prize" ? "prizeMoney" : "otherIncome";
+        character.careerCounters[cat] = (character.careerCounters[cat] ?? 0) + amount;
+        break;
+      }
+      case "prize_money": {
+        // 賽事獎金：固定金額，不因個人薪水高低而變動（真實世界獎金池是固定的，不看你薪水多少）
+        character.careerCounters.prizeMoney = (character.careerCounters.prizeMoney ?? 0) + eff.value;
         break;
       }
       default:
