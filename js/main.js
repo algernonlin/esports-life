@@ -249,8 +249,9 @@ function renderDashboard() {
 
   el("dash-name").textContent = character.meta.name;
   el("dash-info").textContent = `${character.meta.position} · ${character.team.name} · ${character.meta.age}歲 · ${character.meta.careerYear}年`;
-  el("dash-stage").textContent = character.meta.currentStageName;
-  el("dash-meta").textContent = `版本：${character.seasonRecord.currentMeta}`;
+  const season = 16 + (character.meta.careerYear - 2026);
+  el("dash-stage").textContent = `S${season} ${character.meta.currentStageName}`;
+  el("dash-meta").innerHTML = `版本：<span class="log-positive">${character.seasonRecord.currentMeta}</span>`;
   el("dash-roster").textContent = { starter: "先發", rotation: "輪換", bench: "替補" }[character.rosterStatus];
   el("dash-roster").className = "badge badge-" + character.rosterStatus;
 
@@ -292,11 +293,18 @@ function renderChampionPanel() {
   el("training-points").textContent = character.trainingPoints;
 
   const myPos = character.meta.position;
-  const relevant = CHAMPIONS.filter((c) => c.primary === myPos || c.secondary.includes(myPos));
-  el("champion-select").innerHTML = relevant.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+  const metaIds = character.seasonRecord.metaChampions ?? [];
+
+  // 訓練下拉選單：依熟練度高到低排序，直接顯示數值
+  const relevant = CHAMPIONS
+    .filter((c) => c.primary === myPos || c.secondary.includes(myPos))
+    .map((c) => ({ champ: c, proficiency: character.champions[c.id]?.proficiency ?? 0 }))
+    .sort((a, b) => b.proficiency - a.proficiency);
+  el("champion-select").innerHTML = relevant
+    .map(({ champ, proficiency }) => `<option value="${champ.id}">${champ.name}（${Math.round(proficiency)}）</option>`)
+    .join("");
 
   // 右側側欄：全部五個位置的版本英雄一覽，不只你自己的位置
-  const metaIds = character.seasonRecord.metaChampions ?? [];
   el("meta-champion-list").innerHTML = POSITIONS.map((pos) => {
     const champs = metaIds.map((id) => getChampion(id)).filter((c) => c && c.primary === pos);
     if (!champs.length) return "";
@@ -307,23 +315,26 @@ function renderChampionPanel() {
       </div>`;
   }).join("");
 
-  // 右側側欄：隊伍平均戰力
+  // 左側欄：隊伍平均戰力（併入隊伍區塊）
   const posStrengths = Object.values(character.team.positionStrength ?? {});
   const avgStrength = posStrengths.length ? Math.round(posStrengths.reduce((a, b) => a + b, 0) / posStrengths.length) : character.team.baseStrength;
   el("team-avg-strength").textContent = avgStrength;
 
-  const owned = Object.keys(character.champions);
+  // 右側欄：個人熟練度前五英雄（依有效熟練度排序，只取前5）
+  const owned = Object.keys(character.champions)
+    .map((id) => ({ id, eff: effectiveProficiency(character, id, myPos) }))
+    .sort((a, b) => b.eff - a.eff)
+    .slice(0, 5);
   el("champion-list").innerHTML = owned.length
-    ? owned.map((id) => {
+    ? owned.map(({ id, eff }) => {
         const champ = getChampion(id);
         if (!champ) return "";
-        const eff = Math.round(effectiveProficiency(character, id, myPos));
-        const isMeta = champ.flavor === character.seasonRecord.currentMeta;
+        const isMeta = metaIds.includes(id);
         return `
           <div class="champ-row">
             <span class="champ-name">${champ.name}${isMeta ? ' <span class="meta-tag">版本英雄</span>' : ""}</span>
-            <div class="stat-track"><div class="stat-fill" style="width:${eff}%"></div></div>
-            <span class="stat-value mono">${eff}</span>
+            <div class="stat-track"><div class="stat-fill" style="width:${Math.round(eff)}%"></div></div>
+            <span class="stat-value mono">${Math.round(eff)}</span>
           </div>`;
       }).join("")
     : `<div class="empty-hint">尚未練習任何英雄，選一隻開始吧。</div>`;
