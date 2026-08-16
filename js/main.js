@@ -27,6 +27,16 @@ import { CHAMPIONS, getChampion, trainChampion, effectiveProficiency } from "./c
 import { computeCareerStats } from "./careerStats.js";
 
 const el = (id) => document.getElementById(id);
+
+// 事件卡片開關：開啟時連帶把推進按鈕disable，逼玩家先處理完事件才能繼續
+function openEventCard() {
+  openEventCard();
+  el("btn-advance").disabled = true;
+}
+function closeEventCard() {
+  closeEventCard();
+  el("btn-advance").disabled = false;
+}
 let character = null;
 let currentSeed = "";
 let pendingRoll = { position: "中路", region: "LPL" };
@@ -525,7 +535,7 @@ function advance() {
     maybeTriggerEvent();
     if (!checkRetirement()) {
       character.team.contractYears -= 1;
-      const modalOpen = () => el("event-modal").classList.contains("open");
+      const modalOpen = () => el("event-inline").classList.contains("open");
       if (character.team.contractYears <= 0 && !modalOpen()) {
         handleContractRenewal();
       } else if (!modalOpen()) {
@@ -582,13 +592,14 @@ function runInteractivePlayoff(isInternational, onComplete) {
         el("event-text").textContent = moment;
         el("event-choices").innerHTML = "";
         el("event-choices").classList.add("hidden");
+        el("dice-area").innerHTML = "";
         el("dice-area").classList.remove("show");
-        el("event-modal").classList.add("open");
+        openEventCard();
 
         runDiceAnimation(
           { ...roll, target, actualProb, passed, extraText: `這場數據：${result.kills} / ${result.deaths} / ${result.assists}` },
           () => {
-            el("event-modal").classList.remove("open");
+            closeEventCard();
             afterGame(result);
           }
         );
@@ -700,10 +711,10 @@ function showContractPrompt(teamWantsRenew) {
     el("event-choices").innerHTML = `<button class="btn-choice" data-act="explore">前往自由市場</button>`;
   }
 
-  el("event-modal").classList.add("open");
+  openEventCard();
   el("event-choices").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
-      el("event-modal").classList.remove("open");
+      closeEventCard();
       if (b.dataset.act === "renew") {
         character.team.contractYears = renewContract.years;
         character.team.contractSalary = renewContract.annualSalary;
@@ -734,7 +745,7 @@ function showFreeAgencyPrompt() {
   el("event-choices").innerHTML = offers.map((r) =>
     `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${r.team.region}・該路戰力 ${r.team.positionStrength[character.meta.position]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬）${r.guaranteed ? "・保底邀請" : ""}</button>`
   ).join("");
-  el("event-modal").classList.add("open");
+  openEventCard();
 
   el("event-choices").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
@@ -751,7 +762,7 @@ function showFreeAgencyPrompt() {
       character.meta.region = t.region;
       const regionNote = t.region !== oldRegion ? `，跨賽區轉戰 ${t.region}` : "";
       pushLog(`合約到期後在自由市場，從 ${oldTeam} 轉會加入 ${t.name}${regionNote}，簽下${row.contract.years}年約，總價${row.contract.totalValue.toLocaleString()}萬。`);
-      el("event-modal").classList.remove("open");
+      closeEventCard();
       renderDashboard();
       saveGame();
     }, { once: true })
@@ -803,7 +814,7 @@ function checkRetirement() {
 // 如果這個賽段已經有其他事件彈窗開著，就跳過，避免兩個彈窗互相覆蓋
 function maybeOfferRetirement() {
   if (character.retired || character.meta.age < 27) return false;
-  if (el("event-modal").classList.contains("open")) return false;
+  if (el("event-inline").classList.contains("open")) return false;
   const chance = clamp(0.15 + (character.meta.age - 27) * 0.08, 0.1, 0.9);
   if (runtimeRng() >= chance) return false;
   showRetirementPrompt();
@@ -820,11 +831,11 @@ function showRetirementPrompt() {
     <button class="btn-choice" data-act="retire">宣布退役，結束職業生涯</button>
     <button class="btn-choice" data-act="continue">繼續留在賽場上奮戰</button>
   `;
-  el("event-modal").classList.add("open");
+  openEventCard();
 
   el("event-choices").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
-      el("event-modal").classList.remove("open");
+      closeEventCard();
       if (b.dataset.act === "retire") {
         character.retired = true;
         character.flags["主動退役"] = true;
@@ -854,7 +865,7 @@ function showEventModal(event) {
   el("dice-area").classList.remove("show");
   el("event-choices").classList.remove("hidden");
   el("event-choices").innerHTML = event.choices.map((c, i) => `<button class="btn-choice" data-idx="${i}">${c.label}</button>`).join("");
-  el("event-modal").classList.add("open");
+  openEventCard();
 
   el("event-choices").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
@@ -877,46 +888,52 @@ function runDiceAnimation(dice, onDone) {
   area.innerHTML = `
     <div class="dice-target mono">需要擲出 <span class="accent-text">${dice.target}</span> 點以上（機率約 ${Math.round(dice.actualProb * 100)}%）</div>
     <div class="dice-pair">
-      <span class="die rolling" id="die-1">${faceChar(1)}</span>
-      <span class="die rolling" id="die-2">${faceChar(1)}</span>
+      <span class="die" id="die-1">${faceChar(1)}</span>
+      <span class="die" id="die-2">${faceChar(1)}</span>
     </div>
     <div class="dice-result mono" id="dice-result"></div>
+    <button class="btn-primary btn-block" id="btn-roll-dice" style="margin-top:14px;">擲骰 ▸</button>
   `;
 
-  const d1El = el("die-1");
-  const d2El = el("die-2");
-  const spin = setInterval(() => {
-    d1El.textContent = faceChar(1 + Math.floor(Math.random() * 6));
-    d2El.textContent = faceChar(1 + Math.floor(Math.random() * 6));
-  }, 70);
+  el("btn-roll-dice").addEventListener("click", () => {
+    el("btn-roll-dice").remove();
+    const d1El = el("die-1");
+    const d2El = el("die-2");
+    d1El.classList.add("rolling");
+    d2El.classList.add("rolling");
+    const spin = setInterval(() => {
+      d1El.textContent = faceChar(1 + Math.floor(Math.random() * 6));
+      d2El.textContent = faceChar(1 + Math.floor(Math.random() * 6));
+    }, 70);
 
-  setTimeout(() => {
-    clearInterval(spin);
-    d1El.textContent = faceChar(dice.d1);
-    d2El.textContent = faceChar(dice.d2);
-    d1El.classList.remove("rolling");
-    d2El.classList.remove("rolling");
-    d1El.classList.add(dice.passed ? "settle-pass" : "settle-fail");
-    d2El.classList.add(dice.passed ? "settle-pass" : "settle-fail");
+    setTimeout(() => {
+      clearInterval(spin);
+      d1El.textContent = faceChar(dice.d1);
+      d2El.textContent = faceChar(dice.d2);
+      d1El.classList.remove("rolling");
+      d2El.classList.remove("rolling");
+      d1El.classList.add(dice.passed ? "settle-pass" : "settle-fail");
+      d2El.classList.add(dice.passed ? "settle-pass" : "settle-fail");
 
-    const resEl = el("dice-result");
-    resEl.textContent = `${dice.d1} + ${dice.d2} = ${dice.sum}　${dice.passed ? "▸ 判定成功" : "▸ 判定失敗"}`;
-    resEl.className = "dice-result mono " + (dice.passed ? "pass" : "fail");
+      const resEl = el("dice-result");
+      resEl.textContent = `${dice.d1} + ${dice.d2} = ${dice.sum}　${dice.passed ? "▸ 判定成功" : "▸ 判定失敗"}`;
+      resEl.className = "dice-result mono " + (dice.passed ? "pass" : "fail");
 
-    if (dice.extraText) {
-      const extraEl = document.createElement("div");
-      extraEl.className = "dice-extra mono";
-      extraEl.textContent = dice.extraText;
-      area.appendChild(extraEl);
-    }
+      if (dice.extraText) {
+        const extraEl = document.createElement("div");
+        extraEl.className = "dice-extra mono";
+        extraEl.textContent = dice.extraText;
+        area.appendChild(extraEl);
+      }
 
-    const cont = document.createElement("button");
-    cont.className = "btn-primary btn-block";
-    cont.textContent = "繼續 ▸";
-    cont.style.marginTop = "16px";
-    cont.addEventListener("click", onDone, { once: true });
-    area.appendChild(cont);
-  }, 900);
+      const cont = document.createElement("button");
+      cont.className = "btn-primary btn-block";
+      cont.textContent = "繼續 ▸";
+      cont.style.marginTop = "16px";
+      cont.addEventListener("click", onDone, { once: true });
+      area.appendChild(cont);
+    }, 900);
+  });
 }
 
 function finishEvent(event, choice, outcome, dice) {
@@ -926,7 +943,7 @@ function finishEvent(event, choice, outcome, dice) {
   const statSummary = summarizeEffects(outcome.effects ?? [], character);
   const statNote = statSummary ? `　[${statSummary}]` : "";
   pushLog(`【${event.title}】選擇了「${choice.label}」${diceNote}${resultNote}${statNote}`);
-  el("event-modal").classList.remove("open");
+  closeEventCard();
   renderDashboard();
   saveGame();
 }
