@@ -19,7 +19,7 @@ import {
   evaluateInvitations, grantTrainingPoints, tickChampionDecay, pickTradeDestination,
   evaluateContractRenewal, trainCoreStat, paySalary, evaluateStageHonors, evaluateYearEndHonors,
   computeContractSalary, buildInternationalOpponentPool, applyGameResult, rollFinalsMVP,
-  previewContract, computePrizeMoney, snapshotYearRecord,
+  previewContract, computePrizeMoney, snapshotYearRecord, buildDomesticPlayoffOpponentPool,
 } from "./season.js";
 import { checkMilestones } from "./achievements.js";
 import { rollInjuryChance, tickInjuries } from "./injuries.js";
@@ -211,6 +211,8 @@ function statBarHtml(key, value) {
     </div>`;
 }
 
+const ROSTER_LABEL = { starter: "先發", rotation: "輪換", bench: "替補" };
+
 // ---------------- Screen 2: 隊伍邀請 ----------------
 function renderInvitations() {
   const rows = evaluateInvitations(character, runtimeRng);
@@ -222,7 +224,7 @@ function renderInvitations() {
         <span class="invite-name">${r.team.name}</span>
         <span class="invite-strength mono">該路戰力 ${r.team.positionStrength[character.meta.position]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬</span>
       </div>
-      <div class="invite-status">${r.guaranteed ? "邀請你加入" : "一軍正式邀請"}</div>
+      <div class="invite-status">邀請你加入擔任${character.meta.position}${ROSTER_LABEL[r.contract.predictedRoster]}</div>
       <button class="btn-small" data-team="${r.team.name}">加入</button>
     </div>
   `).join("");
@@ -234,6 +236,7 @@ function renderInvitations() {
       character.team = { ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength, reputation: t.reputation };
       character.team.contractYears = row.contract.years;
       character.team.contractSalary = row.contract.annualSalary;
+      character.rosterStatus = row.contract.predictedRoster;
       character.meta.teamName = t.name;
       startCareer();
     })
@@ -552,10 +555,11 @@ function advance() {
 function runInteractivePlayoff(isInternational, onComplete) {
   const opponentPool = isInternational
     ? buildInternationalOpponentPool(character)
-    : (TEAMS[character.meta.region] ?? []).filter((t) => t.name !== character.team.name);
+    : buildDomesticPlayoffOpponentPool(character);
 
   function playSeries(isFinal, seriesDone) {
     let wins = 0, losses = 0;
+    const gameResults = []; // 累積每場結果，系列賽結束後合併成一行log，不逐場記錄
 
     // 對手整個系列賽(BO5)只抽一次，不是每場重抽——原本每場重新抽對手是bug，
     // 導致一輪四強賽打了好幾支不同隊伍，這裡改成賽前先確定對手，全系列打同一支
@@ -575,10 +579,23 @@ function runInteractivePlayoff(isInternational, onComplete) {
       const afterGame = (result) => {
         applyGameResult(character, result);
         result.win ? wins++ : losses++;
-        const roundLabel = isFinal ? "冠軍賽" : "四強賽";
-        pushLog(`${roundLabel} 第${seriesGameIndex + 1}場 vs ${opponent?.name ?? "未知隊伍"}：${result.win ? "勝" : "敗"}（${result.kills}/${result.deaths}/${result.assists}）`);
-        if (wins >= 3 || losses >= 3) seriesDone(wins >= 3);
-        else playNextGame();
+        gameResults.push(result);
+
+        if (wins >= 3 || losses >= 3) {
+          // 系列賽結束，合併成一行log：比分、勝負、平均KDA
+          const roundLabel = isFinal ? "冠軍賽" : "四強賽";
+          const seriesWon = wins >= 3;
+          const totalKills = gameResults.reduce((s, r) => s + r.kills, 0);
+          const totalDeaths = gameResults.reduce((s, r) => s + r.deaths, 0);
+          const totalAssists = gameResults.reduce((s, r) => s + r.assists, 0);
+          const avgKda = totalDeaths === 0 ? (totalKills + totalAssists) : Math.round(((totalKills + totalAssists) / totalDeaths) * 100) / 100;
+          const oppName = opponent?.name ?? "未知隊伍";
+          const scoreText = seriesWon ? `${wins}:${losses}` : `${losses}:${wins}`;
+          pushLog(`${roundLabel} ${character.team.name} ${scoreText} ${oppName}，${character.team.name}取得BO5${seriesWon ? "勝利" : "落敗"}，平均KDA ${avgKda}。`);
+          seriesDone(seriesWon);
+        } else {
+          playNextGame();
+        }
       };
 
       if (showDice) {
@@ -674,6 +691,7 @@ function applyTrade() {
     contractYears: contract.years,
   };
   character.team.contractSalary = contract.annualSalary;
+  character.rosterStatus = contract.predictedRoster;
   character.meta.teamName = dest.name;
   character.meta.region = dest.region; // 跨賽區轉會：賽區也要跟著更新
 
@@ -743,7 +761,7 @@ function showFreeAgencyPrompt() {
   el("dice-area").classList.remove("show");
   el("event-choices").classList.remove("hidden");
   el("event-choices").innerHTML = offers.map((r) =>
-    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${r.team.region}・該路戰力 ${r.team.positionStrength[character.meta.position]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬）${r.guaranteed ? "・保底邀請" : ""}</button>`
+    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${r.team.region}・${ROSTER_LABEL[r.contract.predictedRoster]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬）</button>`
   ).join("");
   openEventCard();
 
@@ -758,6 +776,7 @@ function showFreeAgencyPrompt() {
         reputation: t.reputation, chemistry: 50, favor: 50, contractYears: row.contract.years,
       };
       character.team.contractSalary = row.contract.annualSalary;
+      character.rosterStatus = row.contract.predictedRoster;
       character.meta.teamName = t.name;
       character.meta.region = t.region;
       const regionNote = t.region !== oldRegion ? `，跨賽區轉戰 ${t.region}` : "";

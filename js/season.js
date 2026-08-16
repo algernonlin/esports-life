@@ -116,7 +116,7 @@ export function applyGameResult(character, result) {
 export function simulatePlayoff(character, runtimeRng, { isInternational = false } = {}) {
   const opponentPool = isInternational
     ? buildInternationalOpponentPool(character)
-    : (TEAMS[character.meta.region] ?? []).filter((t) => t.name !== character.team.name);
+    : buildDomesticPlayoffOpponentPool(character);
 
   function playSeries() {
     let wins = 0, losses = 0;
@@ -154,6 +154,14 @@ export function simulatePlayoff(character, runtimeRng, { isInternational = false
     else character.careerCounters.domesticRunnerUps++;
     return "亞軍";
   }
+}
+
+// 國內季後賽對手池：只從賽區前半強隊伍裡抽（合理的季後賽競爭者），排除墊底隊伍
+export function buildDomesticPlayoffOpponentPool(character) {
+  const regionTeams = (TEAMS[character.meta.region] ?? []).filter((t) => t.name !== character.team.name);
+  const sorted = [...regionTeams].sort((a, b) => b.baseStrength - a.baseStrength);
+  const contenderCount = Math.max(3, Math.ceil(sorted.length / 2));
+  return sorted.slice(0, contenderCount);
 }
 
 // 國際賽對手池：抓其他賽區各自最強的前3隊，模擬「打進國際賽會遇到各賽區精英」
@@ -333,9 +341,36 @@ export function evaluateInvitations(character, runtimeRng, crossRegion = false) 
 // 合約薪水：簽約當下算好、鎖定，不會因為之後表現/知名度變動而浮動，
 // 只有換約（續約/轉會/自由市場）才會重新議價算出新數字
 // -------------------------------------------------------------
-export function computeContractSalary(character, team) {
-  const regionMult = REGION_SALARY_MULTIPLIER[team.region] ?? 1.0;
-  return Math.round(team.baseStrength * 30 * regionMult + character.fame * 5);
+// -------------------------------------------------------------
+// 薪資範圍抓真實市場的量級（萬）：底薪(替補/新人) ~ 一般明星選手天花板
+// （真正賽區第一人等級的極端天價不納入常態公式，那是萬中選一的特例）
+// -------------------------------------------------------------
+const REGION_SALARY_RANGE = {
+  LPL: { floor: 110, ceiling: 4700 },
+  LCK: { floor: 165, ceiling: 5000 },
+  LEC: { floor: 210, ceiling: 3450 },
+  LTA: { floor: 245, ceiling: 1600 },
+  LCP: { floor: 50,  ceiling: 480 },
+};
+const ROSTER_SIGNING_FACTOR = { starter: 1.0, rotation: 0.55, bench: 0.25 };
+
+export function computeContractSalary(character, team, predictedRoster = "rotation") {
+  const range = REGION_SALARY_RANGE[team.region] ?? REGION_SALARY_RANGE.LEC;
+  const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
+  // 綜合能力(權重較高)+知名度，算出「星度」，用指數曲線壓縮——大部分人集中在底薪附近，只有真正頂尖才衝高
+  const starPower = clamp((statAvg - 30) / 65, 0, 1) * 0.7 + clamp(character.fame / 100, 0, 1) * 0.3;
+  const qualityCurve = Math.pow(starPower, 2.4);
+  const rosterFactor = ROSTER_SIGNING_FACTOR[predictedRoster] ?? 0.55;
+  return Math.round(range.floor + (range.ceiling - range.floor) * qualityCurve * rosterFactor);
+}
+
+// 預測簽約當下的先發/輪換/替補（跟evaluateRosterStatus同一套邏輯，但用「候選隊伍」而非目前隊伍）
+export function predictRosterStatus(character, team) {
+  const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
+  const positionNeed = team.positionStrength?.[character.meta.position] ?? team.baseStrength;
+  if (statAvg >= positionNeed) return "starter";
+  if (statAvg >= positionNeed * 0.8) return "rotation";
+  return "bench";
 }
 
 // -------------------------------------------------------------
@@ -353,8 +388,9 @@ export function rollContractLength(runtimeRng) {
 
 export function previewContract(character, team, runtimeRng) {
   const years = rollContractLength(runtimeRng);
-  const annualSalary = Math.round(computeContractSalary(character, team) * CONTRACT_YEAR_MULTIPLIER[years]);
-  return { years, annualSalary, totalValue: annualSalary * years };
+  const predictedRoster = predictRosterStatus(character, team);
+  const annualSalary = Math.round(computeContractSalary(character, team, predictedRoster) * CONTRACT_YEAR_MULTIPLIER[years]);
+  return { years, annualSalary, totalValue: annualSalary * years, predictedRoster };
 }
 
 // -------------------------------------------------------------
