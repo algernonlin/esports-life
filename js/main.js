@@ -30,11 +30,11 @@ const el = (id) => document.getElementById(id);
 
 // 事件卡片開關：開啟時連帶把推進按鈕disable，逼玩家先處理完事件才能繼續
 function openEventCard() {
-  openEventCard();
+  el("event-inline").classList.add("open");
   el("btn-advance").disabled = true;
 }
 function closeEventCard() {
-  closeEventCard();
+  el("event-inline").classList.remove("open");
   el("btn-advance").disabled = false;
 }
 let character = null;
