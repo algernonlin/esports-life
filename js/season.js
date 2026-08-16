@@ -11,17 +11,17 @@ import { decayChampionProficiency, rollMetaChampions, trainChampion } from "./ch
 // -------------------------------------------------------------
 export function checkQualification(character, conditionKey) {
   const sr = character.seasonRecord;
+  const top2 = (result) => result === "冠軍" || result === "亞軍";
+  const top4 = (result) => result === "冠軍" || result === "亞軍" || result === "止步四強";
   switch (conditionKey) {
     case "qualified_pioneer":
-      return sr.stage1.playoffResult === "冠軍" || sr.stage1.playoffResult === "亞軍";
+      return top2(sr.stage1.playoffResult); // 先鋒賽：第一賽段季後賽前二
     case "qualified_msi":
-      return sr.stage1.playoffResult === "冠軍";
+      return top2(sr.stage2.playoffResult); // 季中邀請賽：第二賽段季後賽前二
     case "qualified_ewc":
-      return character.fame >= 40 && (sr.stage1.wins + sr.stage2.wins) >= 12;
-    case "qualified_worlds": {
-      const totalWins = sr.stage1.wins + sr.stage2.wins + sr.stage3.wins;
-      return totalWins >= 24 || sr.stage3.playoffResult === "冠軍" || sr.stage3.playoffResult === "亞軍";
-    }
+      return top2(sr.stage2.playoffResult); // 電競世界盃：跟MSI同期，一樣要求第二賽段前二
+    case "qualified_worlds":
+      return top4(sr.stage3.playoffResult); // 只有世界賽是取前四，門檻比其他國際賽寬鬆
     default:
       return false;
   }
@@ -141,7 +141,7 @@ export function simulatePlayoff(character, runtimeRng, { isInternational = false
   }
 
   const wonSemifinal = playSeries(); // 第一輪：四強賽
-  if (!wonSemifinal) return "止步四強";
+  if (!wonSemifinal) return isInternational ? "止步八強" : "止步四強";
 
   const wonFinal = playSeries(); // 第二輪：冠軍賽，只有贏了四強賽才會打
   if (wonFinal) {

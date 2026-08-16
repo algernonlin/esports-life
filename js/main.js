@@ -213,6 +213,13 @@ function statBarHtml(key, value) {
 
 const ROSTER_LABEL = { starter: "先發", rotation: "輪換", bench: "替補" };
 
+// 例行賽晉級季後賽的門檻：勝率要過半
+function qualifiesForPlayoff(stageRecord) {
+  const total = stageRecord.wins + stageRecord.losses;
+  if (total === 0) return false;
+  return stageRecord.wins / total >= 0.5;
+}
+
 // ---------------- Screen 2: 隊伍邀請 ----------------
 function renderInvitations() {
   const rows = evaluateInvitations(character, runtimeRng);
@@ -501,6 +508,16 @@ function advance() {
   } else if (stageType === "playoff" || stageType === "international") {
     const isInternational = stageType === "international";
     const stageKey = currentStageRecordKey();
+
+    // 國內季後賽：例行賽戰績要過半勝率才能晉級，不是無條件都能打季後賽
+    if (!isInternational && !qualifiesForPlayoff(character.seasonRecord[stageKey])) {
+      const rec = character.seasonRecord[stageKey];
+      character.seasonRecord[stageKey].playoffResult = "未晉級";
+      pushLog(`例行賽戰績 ${rec.wins}勝${rec.losses}敗，未達過半勝率，無緣季後賽。`);
+      finishAdvance();
+      return;
+    }
+
     runInteractivePlayoff(isInternational, (result) => {
       if (isInternational) {
         character.seasonRecord.qualifiedEvents.push({ name: character.meta.currentStageName, result });
@@ -590,8 +607,8 @@ function runInteractivePlayoff(isInternational, onComplete) {
           const totalAssists = gameResults.reduce((s, r) => s + r.assists, 0);
           const avgKda = totalDeaths === 0 ? (totalKills + totalAssists) : Math.round(((totalKills + totalAssists) / totalDeaths) * 100) / 100;
           const oppName = opponent?.name ?? "未知隊伍";
-          const scoreText = seriesWon ? `${wins}:${losses}` : `${losses}:${wins}`;
-          pushLog(`${roundLabel} ${character.team.name} ${scoreText} ${oppName}，${character.team.name}取得BO5${seriesWon ? "勝利" : "落敗"}，平均KDA ${avgKda}。`);
+          const scoreText = `${wins}:${losses}`; // 一律是「我方:對方」，不用因勝負而反轉，之前反轉的邏輯是bug
+          pushLog(`${roundLabel} ${character.team.name} ${scoreText} ${oppName}，${seriesWon ? "系列賽勝出" : "系列賽落敗"}，平均KDA ${avgKda}。`);
           seriesDone(seriesWon);
         } else {
           playNextGame();
@@ -630,7 +647,7 @@ function runInteractivePlayoff(isInternational, onComplete) {
   }
 
   playSeries(false, (wonSemifinal) => {
-    if (!wonSemifinal) { onComplete("止步四強"); return; }
+    if (!wonSemifinal) { onComplete(isInternational ? "止步八強" : "止步四強"); return; }
     playSeries(true, (wonFinal) => {
       if (wonFinal) {
         if (isInternational) character.careerCounters.internationalTitles++;
