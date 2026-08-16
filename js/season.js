@@ -71,8 +71,8 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
       continue;
     }
     const opponent = pickWeighted(runtimeRng, regionTeams.filter((t) => t.name !== character.team.name).map((t) => ({ ...t, weight: 1 })));
-    const oppStrength = opponent ? opponent.baseStrength : 65;
-    const result = simulateMatch(character, oppStrength, { isMajorEvent: false }, runtimeRng);
+    const opponentTeam = opponent ?? { baseStrength: 65, positionStrength: {} };
+    const result = simulateMatch(character, opponentTeam, { isMajorEvent: false }, runtimeRng);
     results.push({ played: true, ...result, opponentName: opponent?.name ?? "未知隊伍" });
 
     if (result.win) {
@@ -100,51 +100,64 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
   return { results, wins, losses, longestWinStreak, longestLossStreak, chemistryDelta, totalGames, stageMvpCount };
 }
 
+// 季後賽/國際賽改成真正的兩輪淘汰制（四強賽→冠軍賽），而不是單一BO5就決定冠軍——
+// 單輪模式會讓「贏一次系列賽=拿冠軍」，難度被嚴重壓縮，兩輪才會真正複合出應有的難度
+// -------------------------------------------------------------
+// 單場結果套用進生涯累積數據（例行賽批次跟互動骰子流程共用同一套）
+// -------------------------------------------------------------
+export function applyGameResult(character, result) {
+  character.careerCounters.kills += result.kills;
+  character.careerCounters.deaths += result.deaths;
+  character.careerCounters.assists += result.assists;
+  if (result.win) character.careerCounters.wins++; else character.careerCounters.losses++;
+  if (result.mvp) character.careerCounters.mvps++;
+}
+
 export function simulatePlayoff(character, runtimeRng, { isInternational = false } = {}) {
-  let wins = 0, losses = 0;
   const opponentPool = isInternational
     ? buildInternationalOpponentPool(character)
     : (TEAMS[character.meta.region] ?? []).filter((t) => t.name !== character.team.name);
 
-  for (let i = 0; i < 5; i++) {
-    const isDecidingGame = wins === 2 && losses === 2; // BO5打到2:2，第5場就是決勝局
-    const opponent = opponentPool.length ? pickWeighted(runtimeRng, opponentPool.map((t) => ({ ...t, weight: 1 }))) : null;
-    const oppStrength = (opponent?.baseStrength ?? character.team.baseStrength) + randomRange(runtimeRng, -4, 6);
-    const result = simulateMatch(
-      character, oppStrength,
-      { isMajorEvent: true, isInternational, isDecidingGame, seriesGameIndex: i },
-      runtimeRng
-    );
-    result.win ? wins++ : losses++;
+  function playSeries() {
+    let wins = 0, losses = 0;
+    for (let i = 0; i < 5; i++) {
+      const isDecidingGame = wins === 2 && losses === 2; // BO5打到2:2，第5場就是決勝局
+      // 對手依強度加權抽選，不是均等機率——現實中打進季後賽本身就代表對手多半是有實力的隊伍
+      const opponent = opponentPool.length ? pickWeighted(runtimeRng, opponentPool.map((t) => ({ ...t, weight: t.baseStrength }))) : null;
+      const opponentTeam = opponent ?? { baseStrength: character.team.baseStrength, positionStrength: {} };
+      const result = simulateMatch(
+        character, opponentTeam,
+        { isMajorEvent: true, isInternational, isDecidingGame, seriesGameIndex: i },
+        runtimeRng
+      );
+      result.win ? wins++ : losses++;
 
-    // 季後賽/國際賽的K/D/A跟勝敗，一樣要累積進生涯數據，之前漏掉了
-    character.careerCounters.kills += result.kills;
-    character.careerCounters.deaths += result.deaths;
-    character.careerCounters.assists += result.assists;
-    if (result.win) character.careerCounters.wins++; else character.careerCounters.losses++;
-    if (result.mvp) character.careerCounters.mvps++;
+      // 每一場（不管哪一輪）都要累積進生涯數據
+      applyGameResult(character, result);
 
-    if (wins >= 3 || losses >= 3) break;
+      if (wins >= 3 || losses >= 3) break;
+    }
+    return wins >= 3;
   }
 
-  let result;
-  if (wins >= 3) {
-    result = "冠軍";
+  const wonSemifinal = playSeries(); // 第一輪：四強賽
+  if (!wonSemifinal) return "止步四強";
+
+  const wonFinal = playSeries(); // 第二輪：冠軍賽，只有贏了四強賽才會打
+  if (wonFinal) {
     if (isInternational) character.careerCounters.internationalTitles++;
     else character.careerCounters.domesticTitles++;
     rollFinalsMVP(character, runtimeRng);
-  } else if (losses >= 3 && wins >= 1) {
-    result = "亞軍";
+    return "冠軍";
+  } else {
     if (isInternational) character.careerCounters.internationalRunnerUps++;
     else character.careerCounters.domesticRunnerUps++;
-  } else {
-    result = "止步四強";
+    return "亞軍";
   }
-  return result;
 }
 
 // 國際賽對手池：抓其他賽區各自最強的前3隊，模擬「打進國際賽會遇到各賽區精英」
-function buildInternationalOpponentPool(character) {
+export function buildInternationalOpponentPool(character) {
   const pool = [];
   for (const region of Object.keys(TEAMS)) {
     if (region === character.meta.region) continue; // 避免國際賽又打回自己賽區的隊伍

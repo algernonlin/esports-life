@@ -115,8 +115,8 @@
 
 <!-- ============ SCREEN 4：生涯主畫面 ============ -->
 <section id="screen-dashboard" class="screen">
-  <div class="dash-grid">
-    <aside class="rail">
+  <div class="dash-grid-3col">
+    <aside class="rail-left">
       <div class="rail-id">
         <span class="eyebrow">PLAYER</span>
         <h2 id="dash-name">—</h2>
@@ -127,6 +127,16 @@
       <div class="rail-block">
         <h3 class="section-title small">能力值</h3>
         <div id="dash-stats" class="stat-list"></div>
+      </div>
+
+      <div class="rail-block">
+        <h3 class="section-title small">隊伍</h3>
+        <div id="dash-team" class="team-stat-list"></div>
+      </div>
+
+      <div class="rail-block">
+        <h3 class="section-title small">先天天賦</h3>
+        <div id="dash-talents" class="talent-list"></div>
       </div>
 
       <div class="rail-block">
@@ -142,83 +152,73 @@
       <button id="btn-new-career" class="btn-ghost btn-block" style="margin-top:auto;">刪除存檔，重新開始</button>
     </aside>
 
-    <main class="dash-main">
+    <main class="dash-center">
       <div class="ticker">
         <span id="dash-stage" class="ticker-stage">—</span>
         <span id="dash-meta" class="ticker-meta mono">—</span>
       </div>
 
-      <div class="panel-row">
-        <div class="panel small-panel">
-          <h3 class="section-title small">隊伍</h3>
-          <div id="dash-team" class="team-stat-list"></div>
-        </div>
-        <div class="panel small-panel">
-          <h3 class="section-title small">生涯數據</h3>
-          <div class="team-stat-list">
-            <div class="team-stat"><span>知名度</span><span class="mono" id="dash-fame">—</span></div>
-            <div class="team-stat"><span>戰績</span><span class="mono" id="dash-record">—</span></div>
-            <div class="team-stat"><span>K / D / A</span><span class="mono" id="dash-kda">—</span></div>
-            <div class="team-stat"><span>場均 K/D/A</span><span class="mono" id="dash-avg">—</span></div>
-            <div class="team-stat"><span>MVP次數</span><span class="mono" id="dash-mvp">—</span></div>
-            <div class="team-stat"><span>生涯薪資(萬)</span><span class="mono" id="dash-salary">—</span></div>
-          </div>
+      <div class="panel">
+        <h3 class="section-title small">生涯數據</h3>
+        <div class="team-stat-list">
+          <div class="team-stat"><span>知名度</span><span class="mono" id="dash-fame">—</span></div>
+          <div class="team-stat"><span>戰績</span><span class="mono" id="dash-record">—</span></div>
+          <div class="team-stat"><span>K / D / A</span><span class="mono" id="dash-kda">—</span></div>
+          <div class="team-stat"><span>場均 K/D/A</span><span class="mono" id="dash-avg">—</span></div>
+          <div class="team-stat"><span>MVP次數</span><span class="mono" id="dash-mvp">—</span></div>
+          <div class="team-stat"><span>生涯薪資(萬)</span><span class="mono" id="dash-salary">—</span></div>
         </div>
       </div>
 
       <button id="btn-advance" class="btn-primary btn-block btn-advance">推進至下一階段 ▸</button>
 
-      <div class="dash-columns">
-        <div class="dash-col-main">
-          <div class="panel">
-            <h3 class="section-title small">英雄訓練　<span class="mono accent-text" id="training-points">0</span> 點可用</h3>
-            <div class="train-controls">
-              <select id="champion-select" class="text-input"></select>
-              <button id="btn-train" class="btn-small">花1點練習</button>
-            </div>
-            <div class="train-controls">
-              <button id="btn-fitness" class="btn-ghost" style="flex:1;">花1點保養體能（降低下次衰退機率）</button>
-            </div>
-            <div class="train-controls">
-              <button id="btn-relax" class="btn-ghost" style="flex:1;">花1點紓壓（降低壓力值）</button>
-            </div>
-
-            <h4 class="core-train-title">加強項目（只能練這三項，其餘靠事件）</h4>
-            <div class="train-controls">
-              <button class="btn-core-train" data-stat="反應">加練個人操作</button>
-              <button class="btn-core-train" data-stat="意識">和教練覆盤</button>
-              <button class="btn-core-train" data-stat="版本適應力">研究版本情報</button>
-            </div>
-
-            <div id="champion-list" class="champion-list"></div>
-          </div>
-
-          <div class="panel">
-            <h3 class="section-title small">生涯紀錄</h3>
-            <div id="event-log" class="log-list"></div>
-          </div>
+      <div class="panel">
+        <h3 class="section-title small">英雄訓練　<span class="mono accent-text" id="training-points">0</span> 點可用</h3>
+        <div class="train-controls">
+          <select id="champion-select" class="text-input"></select>
+          <button id="btn-train" class="btn-small">花1點練習</button>
+        </div>
+        <div class="train-controls">
+          <button id="btn-fitness" class="btn-ghost" style="flex:1;">花1點保養體能（降低下次衰退機率）</button>
+        </div>
+        <div class="train-controls">
+          <button id="btn-relax" class="btn-ghost" style="flex:1;">花1點紓壓（降低壓力值）</button>
         </div>
 
-        <aside class="dash-col-side">
-          <div class="panel">
-            <h3 class="section-title small">隊伍平均戰力</h3>
-            <div class="team-avg-strength">
-              <span class="team-avg-value mono" id="team-avg-strength">—</span>
-            </div>
-          </div>
+        <h4 class="core-train-title">加強項目（只能練這三項，其餘靠事件）</h4>
+        <div class="train-controls">
+          <button class="btn-core-train" data-stat="反應">加練個人操作</button>
+          <button class="btn-core-train" data-stat="意識">和教練覆盤</button>
+          <button class="btn-core-train" data-stat="版本適應力">研究版本情報</button>
+        </div>
 
-          <div class="panel">
-            <h3 class="section-title small">生涯榮譽</h3>
-            <div id="honors-list" class="team-stat-list"></div>
-          </div>
+        <div id="champion-list" class="champion-list"></div>
+      </div>
 
-          <div class="panel">
-            <h3 class="section-title small">本賽段版本英雄</h3>
-            <div id="meta-champion-list" class="meta-champion-list"></div>
-          </div>
-        </aside>
+      <div class="panel">
+        <h3 class="section-title small">生涯紀錄</h3>
+        <div id="event-log" class="log-list"></div>
       </div>
     </main>
+
+    <aside class="rail-right">
+      <div class="panel">
+        <h3 class="section-title small">隊伍平均戰力</h3>
+        <div class="team-avg-strength">
+          <span class="team-avg-value mono" id="team-avg-strength">—</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3 class="section-title small">生涯榮譽</h3>
+        <div id="honors-list" class="team-stat-list"></div>
+      </div>
+
+      <div class="panel">
+        <h3 class="section-title small">本賽段版本英雄</h3>
+        <div id="meta-champion-list" class="meta-champion-list"></div>
+      </div>
+    </aside>
   </div>
 </section>
 

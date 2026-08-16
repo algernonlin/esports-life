@@ -285,18 +285,21 @@ body {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
 
-/* ---------------- Dashboard layout ---------------- */
-.dash-grid {
+/* ---------------- Dashboard layout (三欄置中) ---------------- */
+.dash-grid-3col {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  min-height: 100vh;
+  grid-template-columns: 260px minmax(0, 640px) 260px;
+  gap: 20px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+  align-items: start;
 }
-.rail {
-  background: var(--bg-panel);
-  border-right: 1px solid var(--border);
-  padding: 28px 22px;
-  display: flex; flex-direction: column; gap: 26px;
+.rail-left, .rail-right {
+  display: flex; flex-direction: column; gap: 22px;
 }
+.rail-left { position: sticky; top: 28px; }
+.rail-right { position: sticky; top: 28px; }
 .rail-id h2 { font-family: var(--font-display); font-size: 28px; margin: 6px 0 4px; }
 .small { font-size: 12px; }
 .badge {
@@ -316,11 +319,11 @@ body {
   color: var(--negative); padding: 4px 8px; border-radius: 2px;
 }
 
-.dash-main { padding: 28px 32px 60px; max-width: 1180px; }
+.dash-center { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .ticker {
   display: flex; align-items: baseline; gap: 14px;
   border-bottom: 2px solid var(--accent);
-  padding-bottom: 12px; margin-bottom: 18px;
+  padding-bottom: 12px;
 }
 .ticker-stage { font-family: var(--font-display); font-size: 26px; font-weight: 700; }
 .ticker-meta { font-size: 12px; color: var(--text-secondary); }
@@ -330,7 +333,7 @@ body {
 .team-stat span:last-child { color: var(--text-primary); font-family: var(--font-mono); }
 
 .btn-advance {
-  margin: 0 0 16px;
+  margin: 0;
   padding: 14px 22px;
   font-size: 16px;
   border-radius: var(--radius-md);
@@ -371,17 +374,27 @@ body {
 .champ-row { display: grid; grid-template-columns: 120px 1fr 34px; align-items: center; gap: 10px; }
 .champ-name { font-size: 13px; color: var(--text-secondary); }
 .meta-tag {
-  font-family: var(--font-mono); font-size: 9px; color: var(--accent);
-  border: 1px solid var(--accent-dim); border-radius: 2px; padding: 1px 4px;
+  font-family: var(--font-mono); font-size: 9px; color: var(--accent-warm);
+  border: 1px solid var(--accent-warm); border-radius: 2px; padding: 1px 4px;
 }
 
-.log-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+.log-list { display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; padding-right: 4px; }
 .log-row { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 .log-tag {
-  font-family: var(--font-mono); font-size: 10px; color: var(--accent);
-  border: 1px solid var(--border); border-radius: 2px; padding: 1px 6px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--accent-warm);
+  border: 1px solid var(--accent-warm); border-radius: 2px; padding: 1px 6px;
   margin-right: 8px;
 }
+.log-year-divider {
+  font-family: var(--font-display); font-weight: 700; font-size: 15px;
+  color: var(--text-primary); letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 14px 0 6px; margin-top: 4px;
+}
+.log-year-divider:first-child { margin-top: 0; padding-top: 0; }
+.log-year-divider .mono { color: var(--accent); margin-right: 8px; }
+.log-positive { color: var(--accent-warm); font-weight: 700; }
+.log-negative { color: var(--negative); font-weight: 700; }
 
 /* ---------------- Summary / Share Card ---------------- */
 .summary-stats { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
@@ -510,6 +523,7 @@ body {
 .dice-result { margin-top: 16px; font-size: 15px; letter-spacing: 0.03em; }
 .dice-result.pass { color: var(--positive); }
 .dice-result.fail { color: var(--negative); }
+.dice-extra { margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
 
 .dash-columns { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
 .dash-col-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -517,13 +531,11 @@ body {
 .dash-col-side .meta-champion-list { margin-bottom: 0; }
 
 /* ---------------- Responsive ---------------- */
-@media (max-width: 780px) {
-  .dash-grid { grid-template-columns: 1fr; }
-  .rail { border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; }
-  .rail-block { flex: 1 1 200px; }
-  .dash-main { padding: 22px 16px 60px; }
+@media (max-width: 1080px) {
+  .dash-grid-3col { grid-template-columns: 1fr; max-width: 640px; }
+  .rail-left, .rail-right { position: static; flex-direction: row; flex-wrap: wrap; }
+  .rail-block, .rail-id { flex: 1 1 200px; }
   .panel-row { flex-direction: column; }
-  .dash-columns { grid-template-columns: 1fr; }
   .masthead h1 { font-size: 32px; }
 }
 

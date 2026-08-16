@@ -5,18 +5,20 @@ import {
   POSITIONS, REGIONS, TEAMS, STAT_KEYS, PERSONALITY_TRAITS, POSITION_SPECIALTY,
   createCharacter, SEASON_FLOW,
 } from "./state.js";
-import { makeSeedRng, randomSeedString, runtimeRng, clamp } from "./rng.js";
+import { makeSeedRng, randomSeedString, runtimeRng, clamp, pickWeighted } from "./rng.js";
 import { rollStats, rollPersonality, rollTalents, rollInitialChampions } from "./roll.js";
 import { checkAllConditions } from "./conditions.js";
 import { applyEffects, summarizeEffects } from "./effects.js";
 import { pickEvent, markEventCooldown, resolveChoiceOutcome } from "./events.js";
-import { faceChar } from "./dice.js";
+import { faceChar, probabilityToTarget, rollTwoDice } from "./dice.js";
+import { computeMatchWinProbability, resolveMatchWithResult } from "./match.js";
+import { rollMatchMoment } from "./matchFlavor.js";
 import {
-  advanceStage, simulateRegularStage, simulatePlayoff, checkQualification,
+  advanceStage, simulateRegularStage, checkQualification,
   rollMetaVersion, applyAgeDecay, evaluateRosterStatus,
   evaluateInvitations, grantTrainingPoints, tickChampionDecay, pickTradeDestination,
   evaluateContractRenewal, trainCoreStat, paySalary, evaluateStageHonors, evaluateYearEndHonors,
-  computeContractSalary,
+  computeContractSalary, buildInternationalOpponentPool, applyGameResult, rollFinalsMVP,
 } from "./season.js";
 import { checkMilestones } from "./achievements.js";
 import { rollInjuryChance, tickInjuries } from "./injuries.js";
@@ -136,6 +138,39 @@ function renderRollResult() {
     : `<div class="empty-hint">業餘時期沒有特別練過哪隻英雄</div>`;
 }
 
+// 正負值/關鍵字上色：反應+3 的 +3 上金色，心態-5 的 -5 上紅色，冠軍/FMVP等關鍵字也上金色
+// 用單一正則一次比對，長字詞(FMVP)排在短字詞(MVP)前面，避免FMVP裡的MVP被重複包一層span
+const LOG_GOLD_PATTERN = /(FMVP|冠軍|最佳陣容|年度最佳|MVP)/g;
+function highlightLogText(text) {
+  let html = text.replace(/([+-]\d+(?:\.\d+)?)/g, (m) =>
+    `<span class="${m.startsWith("+") ? "log-positive" : "log-negative"}">${m}</span>`
+  );
+  html = html.replace(LOG_GOLD_PATTERN, (w) => `<span class="log-positive">${w}</span>`);
+  return html;
+}
+
+// 生涯紀錄：依年份分組，開頭插入「S{season}・{year}年・{age}歲」分隔線，呼應YaKyoLife的年度分段呈現
+function renderEventLog() {
+  const groups = [];
+  let lastYear = null;
+  for (const l of log) {
+    if (l.year !== lastYear) {
+      groups.push({ year: l.year, entries: [] });
+      lastYear = l.year;
+    }
+    groups[groups.length - 1].entries.push(l);
+  }
+
+  el("event-log").innerHTML = groups.map((g) => {
+    const season = 16 + (g.year - 2026);
+    const age = 16 + (g.year - 2026);
+    const rows = g.entries.map((l) =>
+      `<div class="log-row"><span class="log-tag">${l.stage}</span>${highlightLogText(l.text)}</div>`
+    ).join("");
+    return `<div class="log-year-divider"><span class="mono">S${season}</span>${g.year}年・${age}歲</div>${rows}`;
+  }).join("");
+}
+
 function renderHonors() {
   const c = character.careerCounters;
   const rows = [
@@ -240,11 +275,15 @@ function renderDashboard() {
 
   renderHonors();
 
+  el("dash-talents").innerHTML = character.talents.length
+    ? character.talents.map((t) => `<div class="talent-tag rarity-${t.rarity}"><b>${t.name}</b><span>${t.desc}</span></div>`).join("")
+    : `<div class="empty-hint">無先天天賦</div>`;
+
   el("dash-injuries").innerHTML = character.injuries.length
     ? character.injuries.map((i) => `<span class="injury-tag">${i.name}（${i.duration}階段）</span>`).join("")
     : `<span class="empty-hint-inline">目前健康</span>`;
 
-  el("event-log").innerHTML = log.slice(0, 8).map((l) => `<div class="log-row"><span class="log-tag">${l.stage}</span>${l.text}</div>`).join("");
+  renderEventLog();
 
   renderChampionPanel();
 }
@@ -414,36 +453,37 @@ function advance() {
     checkMilestones(character, log);
     const injury = rollInjuryChance(character, runtimeRng);
     if (injury) pushLog(`不幸受傷：${injury.name}。`);
-  } else if (stageType === "playoff") {
+    finishAdvance();
+  } else if (stageType === "playoff" || stageType === "international") {
+    const isInternational = stageType === "international";
     const stageKey = currentStageRecordKey();
-    const result = simulatePlayoff(character, runtimeRng);
-    character.seasonRecord[stageKey].playoffResult = result;
-    const fmvpNote = result === "冠軍" && character.careerCounters.fmvps > (character.flags.__prevFmvps ?? 0) ? "，並拿下FMVP！" : "";
-    pushLog(`季後賽結果：${result}${fmvpNote}。`);
-    character.flags.__prevFmvps = character.careerCounters.fmvps;
-    if (result === "冠軍" || result === "亞軍") character.team.favor = clamp(character.team.favor + 8, 0, 100);
-    if (result === "冠軍") {
-      character.flags["剛奪冠"] = true;
-      maybeTriggerEvent();
-      delete character.flags["剛奪冠"];
-    }
-  } else if (stageType === "international") {
-    const result = simulatePlayoff(character, runtimeRng, { isInternational: true });
-    character.seasonRecord.qualifiedEvents.push({ name: character.meta.currentStageName, result });
-    character.careerCounters.worldsAppearances += character.meta.currentStageName === "S16世界大賽" ? 1 : 0;
-    character.fame = clamp(character.fame + 10, 0, 100);
-    const fmvpNote = result === "冠軍" && character.careerCounters.fmvps > (character.flags.__prevFmvps ?? 0) ? "，並拿下FMVP！" : "";
-    pushLog(`${character.meta.currentStageName} 結果：${result}${fmvpNote}，知名度提升。`);
-    character.flags.__prevFmvps = character.careerCounters.fmvps;
-
-    // 四強就算成功：打進國際賽（現況的止步四強已是最差結果）後，狀態會下滑
-    if (character.talents.some((t) => t.id === "semifinal_enough")) {
-      character.dynamic["心態"] = clamp(character.dynamic["心態"] - 10, 0, 100);
-      pushLog(`打完國際賽後有點鬆懈，狀態出現下滑。`);
-    }
+    runInteractivePlayoff(isInternational, (result) => {
+      if (isInternational) {
+        character.seasonRecord.qualifiedEvents.push({ name: character.meta.currentStageName, result });
+        character.careerCounters.worldsAppearances += character.meta.currentStageName === "S16世界大賽" ? 1 : 0;
+        character.fame = clamp(character.fame + 10, 0, 100);
+        pushLog(`${character.meta.currentStageName} 結果：${result}，知名度提升。`);
+        if (character.talents.some((t) => t.id === "semifinal_enough")) {
+          character.dynamic["心態"] = clamp(character.dynamic["心態"] - 10, 0, 100);
+          pushLog(`打完國際賽後有點鬆懈，狀態出現下滑。`);
+        }
+      } else {
+        character.seasonRecord[stageKey].playoffResult = result;
+        if (result === "冠軍" || result === "亞軍") character.team.favor = clamp(character.team.favor + 8, 0, 100);
+        pushLog(`季後賽結果：${result}。`);
+      }
+      if (result === "冠軍") {
+        character.flags["剛奪冠"] = true;
+        maybeTriggerEvent();
+        delete character.flags["剛奪冠"];
+      }
+      finishAdvance();
+    });
+    return; // 互動流程會非同步跑完才呼叫finishAdvance，這裡先中斷
   } else if (stageType === "offseason_short") {
     maybeTriggerEvent();
     tickInjuries(character, runtimeRng);
+    finishAdvance();
   } else if (stageType === "offseason_long") {
     tickInjuries(character, runtimeRng);
     applyAgeDecay(character, runtimeRng);
@@ -460,8 +500,92 @@ function advance() {
         maybeOfferRetirement();
       }
     }
+    finishAdvance();
+  } else {
+    finishAdvance();
+  }
+}
+
+// 季後賽/國際賽互動流程：四強賽只有決勝局(2:2)骰骰子，冠軍賽每一場都骰
+function runInteractivePlayoff(isInternational, onComplete) {
+  const opponentPool = isInternational
+    ? buildInternationalOpponentPool(character)
+    : (TEAMS[character.meta.region] ?? []).filter((t) => t.name !== character.team.name);
+
+  function playSeries(isFinal, seriesDone) {
+    let wins = 0, losses = 0;
+
+    function playNextGame() {
+      const isDecidingGame = wins === 2 && losses === 2;
+      const showDice = isFinal || isDecidingGame;
+      const seriesGameIndex = wins + losses;
+
+      const opponent = opponentPool.length
+        ? pickWeighted(runtimeRng, opponentPool.map((t) => ({ ...t, weight: t.baseStrength })))
+        : null;
+      const opponentTeam = opponent ?? { baseStrength: character.team.baseStrength, positionStrength: {} };
+      const matchContext = { isMajorEvent: true, isInternational, isDecidingGame, seriesGameIndex };
+      const { winProb, fullContext } = computeMatchWinProbability(character, opponentTeam, matchContext, runtimeRng);
+
+      const afterGame = (result) => {
+        applyGameResult(character, result);
+        result.win ? wins++ : losses++;
+        const roundLabel = isFinal ? "冠軍賽" : "四強賽";
+        pushLog(`${roundLabel} 第${seriesGameIndex + 1}場 vs ${opponent?.name ?? "未知隊伍"}：${result.win ? "勝" : "敗"}（${result.kills}/${result.deaths}/${result.assists}）`);
+        if (wins >= 3 || losses >= 3) seriesDone(wins >= 3);
+        else playNextGame();
+      };
+
+      if (showDice) {
+        const roll = rollTwoDice(runtimeRng);
+        const { target, prob: actualProb } = probabilityToTarget(winProb);
+        const passed = roll.sum >= target;
+        const result = resolveMatchWithResult(character, fullContext, passed, runtimeRng);
+        const moment = rollMatchMoment(runtimeRng);
+
+        el("event-title").textContent = `${isFinal ? "冠軍賽" : "四強賽"} 第${seriesGameIndex + 1}場 vs ${opponent?.name ?? "未知隊伍"}`;
+        el("event-text").textContent = moment;
+        el("event-choices").innerHTML = "";
+        el("event-choices").classList.add("hidden");
+        el("dice-area").classList.remove("show");
+        el("event-modal").classList.add("open");
+
+        runDiceAnimation(
+          { ...roll, target, actualProb, passed, extraText: `這場數據：${result.kills} / ${result.deaths} / ${result.assists}` },
+          () => {
+            el("event-modal").classList.remove("open");
+            afterGame(result);
+          }
+        );
+      } else {
+        const win = runtimeRng() < winProb;
+        const result = resolveMatchWithResult(character, fullContext, win, runtimeRng);
+        afterGame(result);
+      }
+    }
+    playNextGame();
   }
 
+  playSeries(false, (wonSemifinal) => {
+    if (!wonSemifinal) { onComplete("止步四強"); return; }
+    playSeries(true, (wonFinal) => {
+      if (wonFinal) {
+        if (isInternational) character.careerCounters.internationalTitles++;
+        else character.careerCounters.domesticTitles++;
+        const gotFmvp = rollFinalsMVP(character, runtimeRng);
+        pushLog(`🏆 拿下冠軍！${gotFmvp ? "並獲選FMVP！" : ""}`);
+        onComplete("冠軍");
+      } else {
+        if (isInternational) character.careerCounters.internationalRunnerUps++;
+        else character.careerCounters.domesticRunnerUps++;
+        pushLog(`惜敗，獲得亞軍。`);
+        onComplete("亞軍");
+      }
+    });
+  });
+}
+
+function finishAdvance() {
   delete character.flags["本場carry但輸"];
   character.rosterStatus = evaluateRosterStatus(character);
 
@@ -732,6 +856,13 @@ function runDiceAnimation(dice, onDone) {
     const resEl = el("dice-result");
     resEl.textContent = `${dice.d1} + ${dice.d2} = ${dice.sum}　${dice.passed ? "▸ 判定成功" : "▸ 判定失敗"}`;
     resEl.className = "dice-result mono " + (dice.passed ? "pass" : "fail");
+
+    if (dice.extraText) {
+      const extraEl = document.createElement("div");
+      extraEl.className = "dice-extra mono";
+      extraEl.textContent = dice.extraText;
+      area.appendChild(extraEl);
+    }
 
     const cont = document.createElement("button");
     cont.className = "btn-primary btn-block";

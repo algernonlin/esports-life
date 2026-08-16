@@ -2,7 +2,7 @@
 // match.js — 比賽模擬公式
 // 個人表現與隊伍勝負分開計算，才會出現「carry但輸」的狀況
 // ============================================================
-import { META_VERSIONS, POSITION_SPECIALTY } from "./state.js";
+import { META_VERSIONS, POSITION_SPECIALTY, POSITIONS } from "./state.js";
 import { clamp, randomRange, runtimeRng } from "./rng.js";
 import { pickMatchChampionFit } from "./champions.js";
 
@@ -105,40 +105,55 @@ export function personalPerformance(character, matchContext = {}) {
   return clamp(perf, 1, 99);
 }
 
-export function teamMatchValue(character, positionWeights, matchContext = {}) {
+// -------------------------------------------------------------
+// 隊伍優勢計算：五路各自比較「我方 vs 對方」的差距，再用當前版本的位置權重加總，
+// 而不是把隊伍壓成一個模糊的總分再比較。這樣版本英雄/版本權重才會真正影響
+// 「哪一路的差距比較重要」，也讓對手不再只是一個隨機噪聲數字，是真的五路對比。
+// -------------------------------------------------------------
+function computeAdvantage(character, opponentTeam, metaWeights, matchContext) {
   const myPos = character.meta.position;
-  const myWeight = positionWeights[myPos] ?? 0.2;
-  const myPerf = personalPerformance(character, matchContext);
+  let weightedGap = 0;
 
-  // 其餘四路：改用隊伍「各路能力值」加權平均，而不是單一 baseStrength
-  const otherPositions = Object.keys(positionWeights).filter((p) => p !== myPos);
-  const otherWeightTotal = otherPositions.reduce((s, p) => s + positionWeights[p], 0) || 1;
-  const teammatesPerf = otherPositions.reduce(
-    (sum, p) => sum + (character.team.positionStrength?.[p] ?? character.team.baseStrength) * (positionWeights[p] / otherWeightTotal),
-    0
-  );
+  for (const pos of POSITIONS) {
+    const myValue = pos === myPos
+      ? personalPerformance(character, matchContext)
+      : (character.team.positionStrength?.[pos] ?? character.team.baseStrength);
+    const oppValue = opponentTeam.positionStrength?.[pos] ?? opponentTeam.baseStrength;
+    const gap = myValue - oppValue;
+    weightedGap += gap * (metaWeights[pos] ?? 0.2);
+  }
 
-  const chemistryMod = 1 + (character.team.chemistry - 50) / 250;
-  const leadershipMod = 1 + (character.stats["領導"] - 50) / 400 + (character.stats["溝通"] - 50) / 500;
-
-  const raw = myWeight * myPerf + (1 - myWeight) * teammatesPerf;
-  return raw * chemistryMod * leadershipMod;
+  return weightedGap;
 }
 
-export function simulateMatch(character, opponentStrength, matchContext = {}, runtimeRng) {
-  const metaWeights = META_VERSIONS[character.seasonRecord.currentMeta] ?? META_VERSIONS["均衡版本"];
+export function teamMatchValue(character, opponentTeam, metaWeights, matchContext = {}) {
+  const advantage = computeAdvantage(character, opponentTeam, metaWeights, matchContext);
 
-  // 逆風/順風判定跟概念神的隨機形態，一場比賽只算/骰一次，讓勝負判定跟KDA判定吃到同一個結果
-  const isUnderdog = character.team.baseStrength < opponentStrength;
+  // 化學反應/領導/溝通轉成加減分（不是乘數），直接疊加在優勢差距上
+  const chemistryBonus = (character.team.chemistry - 50) / 5;
+  const leadershipBonus = (character.stats["領導"] - 50) / 8 + (character.stats["溝通"] - 50) / 10;
+
+  return advantage + chemistryBonus + leadershipBonus;
+}
+
+// -------------------------------------------------------------
+// 拆成兩階段給互動骰子流程用：
+// 1. computeMatchWinProbability：算出這場的真實勝率跟context，不擲骰、不決定勝負
+// 2. resolveMatchWithResult：拿到骰子結果(win已知)後，套用勝負、算KDA/MVP等後續數據
+// simulateMatch 本身保留給批次模擬（例行賽）用，內部直接呼叫這兩個函式串起來
+// -------------------------------------------------------------
+export function computeMatchWinProbability(character, opponentTeam, matchContext = {}, runtimeRng) {
+  const metaWeights = META_VERSIONS[character.seasonRecord.currentMeta] ?? META_VERSIONS["均衡版本"];
+  const isUnderdog = character.team.baseStrength < opponentTeam.baseStrength;
   const conceptualForm = hasTalent(character, "conceptual_god") ? rollConceptualForm(runtimeRng) : null;
   const fullContext = { ...matchContext, isUnderdog, conceptualForm };
 
-  const myTeamValue = teamMatchValue(character, metaWeights, fullContext);
-  const opponentValue = opponentStrength + randomRange(runtimeRng, -4, 4);
+  const advantage = teamMatchValue(character, opponentTeam, metaWeights, fullContext) + randomRange(runtimeRng, -6, 6);
+  const winProb = sigmoid(advantage / 20);
+  return { winProb, fullContext, advantage };
+}
 
-  const winProb = sigmoid((myTeamValue - opponentValue) / 8);
-  const win = runtimeRng() < winProb;
-
+export function resolveMatchWithResult(character, fullContext, win, runtimeRng) {
   // 世一XX的連勝/連敗持續累積，這裡統一更新（用這場「之前」的streak去影響這場表現，這場結果再更新給下一場用）
   character.matchStreak = win
     ? Math.max(1, (character.matchStreak ?? 0) + 1)
@@ -155,11 +170,14 @@ export function simulateMatch(character, opponentStrength, matchContext = {}, ru
   const kda = deaths === 0 ? kills + assists : (kills + assists) / deaths;
 
   const carryButLose = !win && perf >= 70;
-  // MVP：用「相對於自己平均能力值」的表現來判定，而不是絕對門檻——
-  // 絕對門檻70分在一般角色(perf通常落在40~55)身上根本碰不到，只有極端頂尖角色摸得到，
-  // 相對門檻才能讓不同強度的角色都有機會「打出超出自己水準的一場」
   const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
-  const mvp = win && perf >= Math.min(statAvg * 1.15, 90); // 相對門檻，但夾住上限，避免頂尖角色因為99分上限反而摸不到
+  const mvp = win && perf >= Math.min(statAvg * 1.15, 90);
 
-  return { win, kills, deaths, assists, kda: Math.round(kda * 100) / 100, carryButLose, mvp, myTeamValue, opponentValue };
+  return { win, kills, deaths, assists, kda: Math.round(kda * 100) / 100, carryButLose, mvp };
+}
+
+export function simulateMatch(character, opponentTeam, matchContext = {}, runtimeRng) {
+  const { winProb, fullContext } = computeMatchWinProbability(character, opponentTeam, matchContext, runtimeRng);
+  const win = runtimeRng() < winProb;
+  return resolveMatchWithResult(character, fullContext, win, runtimeRng);
 }
