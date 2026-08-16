@@ -209,7 +209,6 @@ export const INNATE_TALENTS = [
   // F6仙人：贏面被放大、輸面也被放大(match.js的personalNoise在順風/逆風時進一步加乘)
   { id: "f6_sage",           name: "F6仙人",       rarity: "common",    desc: "對野區資源有非同一般的執著，容易入侵獲得大優勢，但野區一劣勢就會送很大。" },
 ];
-
 // ---- 角色狀態物件 factory ----
 export function createCharacter({ name, position, region, teamName }) {
   return {
@@ -272,9 +271,9 @@ export function createCharacter({ name, position, region, teamName }) {
       year: 2026,
       currentMeta: "均衡版本",
       metaChampions: [],
-      stage1: { wins: 0, losses: 0, playoffResult: null },
-      stage2: { wins: 0, losses: 0, playoffResult: null },
-      stage3: { wins: 0, losses: 0, playoffResult: null },
+      stage1: { wins: 0, losses: 0, teamWins: 0, teamLosses: 0, playoffResult: null },
+      stage2: { wins: 0, losses: 0, teamWins: 0, teamLosses: 0, playoffResult: null },
+      stage3: { wins: 0, losses: 0, teamWins: 0, teamLosses: 0, playoffResult: null },
       qualifiedEvents: [],
     },
     history: [],

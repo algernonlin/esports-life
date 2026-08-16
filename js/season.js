@@ -60,27 +60,38 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
   let longestWinStreak = 0;
   let longestLossStreak = 0;
   let stageMvpCount = 0;
+  let teamWins = 0, teamLosses = 0; // 隊伍整體戰績(不管你有沒有上場，隊伍都要打這場)
 
   for (let i = 0; i < totalGames; i++) {
-    if (character.rosterStatus === "bench" && runtimeRng() > 0.3) {
-      results.push({ played: false });
-      continue;
-    }
-    if (character.rosterStatus === "rotation" && runtimeRng() > 0.65) {
-      results.push({ played: false });
-      continue;
-    }
     const opponent = pickWeighted(runtimeRng, regionTeams.filter((t) => t.name !== character.team.name).map((t) => ({ ...t, weight: 1 })));
     const opponentTeam = opponent ?? { baseStrength: 65, positionStrength: {} };
+
+    const sitOut =
+      (character.rosterStatus === "bench" && runtimeRng() > 0.3) ||
+      (character.rosterStatus === "rotation" && runtimeRng() > 0.65);
+
+    if (sitOut) {
+      results.push({ played: false });
+      // 你沒上場，隊伍還是要打這場——用隊伍平均戰力(不含你的個人加成)簡化算勝負，
+      // 這樣「隊伍整體戰績」才會是真的隊伍戰績，不會因為你替補沒上場就漏掉這場比賽
+      const myAvg = Object.values(character.team.positionStrength ?? {}).reduce((a, b) => a + b, 0) / 5 || character.team.baseStrength;
+      const oppAvg = Object.values(opponentTeam.positionStrength ?? {}).reduce((a, b) => a + b, 0) / 5 || opponentTeam.baseStrength;
+      const teamWinProb = 1 / (1 + Math.exp(-(myAvg - oppAvg) / 8));
+      if (runtimeRng() < teamWinProb) teamWins++; else teamLosses++;
+      continue;
+    }
+
     const result = simulateMatch(character, opponentTeam, { isMajorEvent: false }, runtimeRng);
     results.push({ played: true, ...result, opponentName: opponent?.name ?? "未知隊伍" });
 
     if (result.win) {
       character.careerCounters.wins++;
+      teamWins++;
       currentStreak = currentStreak > 0 ? currentStreak + 1 : 1;
       longestWinStreak = Math.max(longestWinStreak, currentStreak);
     } else {
       character.careerCounters.losses++;
+      teamLosses++;
       currentStreak = currentStreak < 0 ? currentStreak - 1 : -1;
       longestLossStreak = Math.max(longestLossStreak, -currentStreak);
     }
@@ -97,7 +108,7 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
 
   const wins = results.filter((r) => r.played && r.win).length;
   const losses = results.filter((r) => r.played && !r.win).length;
-  return { results, wins, losses, longestWinStreak, longestLossStreak, chemistryDelta, totalGames, stageMvpCount };
+  return { results, wins, losses, teamWins, teamLosses, longestWinStreak, longestLossStreak, chemistryDelta, totalGames, stageMvpCount };
 }
 
 // 季後賽/國際賽改成真正的兩輪淘汰制（四強賽→冠軍賽），而不是單一BO5就決定冠軍——
@@ -124,7 +135,7 @@ export function simulatePlayoff(character, runtimeRng, { isInternational = false
     const opponent = opponentPool.length ? pickWeighted(runtimeRng, opponentPool.map((t) => ({ ...t, weight: t.baseStrength }))) : null;
     const opponentTeam = opponent ?? { baseStrength: character.team.baseStrength, positionStrength: {} };
     for (let i = 0; i < 5; i++) {
-      const isDecidingGame = wins === 2 && losses === 2; // BO5打到2:2，第5場就是決勝局
+      const isDecidingGame = losses === 2; // 再輸一場就淘汰(2:2/1:2/0:2都算)，不是只有2:2平手才算絕境
       const result = simulateMatch(
         character, opponentTeam,
         { isMajorEvent: true, isInternational, isDecidingGame, seriesGameIndex: i },
@@ -440,13 +451,18 @@ export function paySalary(character) {
 // 用「這個賽段單場MVP次數佔出場比例」當簡化替代——引擎沒有真的模擬其他選手，
 // 沒辦法真的排名，用這個比例當作「這賽段打得夠不夠突出」的判斷依據
 // -------------------------------------------------------------
-export function evaluateStageHonors(character, stageMvpCount, gamesPlayed, wins, losses) {
+export function evaluateStageHonors(character, stageMvpCount, gamesPlayed, wins, losses, totalGames = gamesPlayed) {
   if (gamesPlayed === 0) return { regularSeasonMVP: false, bestXI: false };
   const mvpRate = stageMvpCount / gamesPlayed;
   const winningRecord = wins > losses;
 
-  const regularSeasonMVP = mvpRate >= 0.35 && winningRecord;
-  const bestXI = !regularSeasonMVP && mvpRate >= 0.2;
+  // 出賽率門檻：替補選手只打了小部分場次，就算單場MVP比例湊巧達標，樣本數太小也不該有資格角逐賽季獎項——
+  // 真實世界的賽季MVP不會是打不到一半場次的替補，這裡至少要出賽排定場次的70%才夠資格
+  const participationRate = totalGames > 0 ? gamesPlayed / totalGames : 1;
+  const eligibleForHonors = participationRate >= 0.7;
+
+  const regularSeasonMVP = eligibleForHonors && mvpRate >= 0.35 && winningRecord;
+  const bestXI = eligibleForHonors && !regularSeasonMVP && mvpRate >= 0.2;
 
   if (regularSeasonMVP) {
     character.careerCounters.regularSeasonMVPs++;

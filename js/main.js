@@ -213,11 +213,11 @@ function statBarHtml(key, value) {
 
 const ROSTER_LABEL = { starter: "先發", rotation: "輪換", bench: "替補" };
 
-// 例行賽晉級季後賽的門檻：勝率要過半
+// 例行賽晉級季後賽的門檻：隊伍整體戰績要過半勝率（用隊伍戰績，不是你個人出賽場次的戰績）
 function qualifiesForPlayoff(stageRecord) {
-  const total = stageRecord.wins + stageRecord.losses;
+  const total = (stageRecord.teamWins ?? 0) + (stageRecord.teamLosses ?? 0);
   if (total === 0) return false;
-  return stageRecord.wins / total >= 0.5;
+  return stageRecord.teamWins / total >= 0.5;
 }
 
 // ---------------- Screen 2: 隊伍邀請 ----------------
@@ -487,16 +487,19 @@ function advance() {
   if (stageType === "regular") {
     rollMetaVersion(character, runtimeRng);
     const stageKey = currentStageRecordKey();
-    const { wins, losses, longestWinStreak, longestLossStreak, totalGames, stageMvpCount } = simulateRegularStage(character, runtimeRng);
+    const { wins, losses, teamWins, teamLosses, longestWinStreak, longestLossStreak, totalGames, stageMvpCount } = simulateRegularStage(character, runtimeRng);
+    // 隊伍整體戰績跟你個人出賽戰績分開存：季後賽晉級看隊伍的，生涯數據看你個人的
     character.seasonRecord[stageKey].wins += wins;
     character.seasonRecord[stageKey].losses += losses;
+    character.seasonRecord[stageKey].teamWins = (character.seasonRecord[stageKey].teamWins ?? 0) + teamWins;
+    character.seasonRecord[stageKey].teamLosses = (character.seasonRecord[stageKey].teamLosses ?? 0) + teamLosses;
     let streakNote = "";
     if (longestWinStreak >= 3) streakNote = `，其中一度打出${longestWinStreak}連勝，隊伍士氣明顯提升`;
     else if (longestLossStreak >= 3) streakNote = `，其中一度吞下${longestLossStreak}連敗，氣氛一度低迷`;
-    const rosterNote = character.rosterStatus !== "starter" ? `（本賽段排定${totalGames}場，實際出場${wins + losses}場）` : "";
-    pushLog(`例行賽戰績 ${wins}勝${losses}敗${streakNote}。${rosterNote}`);
+    const rosterNote = character.rosterStatus !== "starter" ? `（你出場${wins + losses}場，個人${wins}勝${losses}敗）` : "";
+    pushLog(`例行賽戰績 ${teamWins}勝${teamLosses}敗${streakNote}。${rosterNote}`);
 
-    const honors = evaluateStageHonors(character, stageMvpCount, wins + losses, wins, losses);
+    const honors = evaluateStageHonors(character, stageMvpCount, wins + losses, wins, losses, totalGames);
     if (honors.regularSeasonMVP) pushLog(`🏆 榮獲本賽段常規賽MVP！`);
     else if (honors.bestXI) pushLog(`⭐ 入選本賽段最佳陣容。`);
 
@@ -509,11 +512,12 @@ function advance() {
     const isInternational = stageType === "international";
     const stageKey = currentStageRecordKey();
 
-    // 國內季後賽：例行賽戰績要過半勝率才能晉級，不是無條件都能打季後賽
+    // 國內季後賽：看隊伍整體戰績夠不夠格，不是你個人出賽場次的戰績——
+    // 不明講「過半勝率」這個具體門檻，現實中晉級也不是單純看勝率過半這麼簡單（賽區排名/名額都有影響）
     if (!isInternational && !qualifiesForPlayoff(character.seasonRecord[stageKey])) {
       const rec = character.seasonRecord[stageKey];
       character.seasonRecord[stageKey].playoffResult = "未晉級";
-      pushLog(`例行賽戰績 ${rec.wins}勝${rec.losses}敗，未達過半勝率，無緣季後賽。`);
+      pushLog(`隊伍例行賽戰績 ${rec.teamWins}勝${rec.teamLosses}敗，無緣季後賽。`);
       finishAdvance();
       return;
     }
@@ -586,7 +590,7 @@ function runInteractivePlayoff(isInternational, onComplete) {
     const opponentTeam = opponent ?? { baseStrength: character.team.baseStrength, positionStrength: {} };
 
     function playNextGame() {
-      const isDecidingGame = wins === 2 && losses === 2;
+      const isDecidingGame = losses === 2; // 再輸一場就淘汰(2:2/1:2/0:2都算)，不是只有2:2平手才算絕境
       const showDice = isFinal || isDecidingGame;
       const seriesGameIndex = wins + losses;
 
