@@ -225,10 +225,25 @@ export function resolveMatchWithResult(character, fullContext, win, runtimeRng, 
 
   // 4. 神經刀在這個既定戰局下，再加一層「個人這場手感好壞」的小幅浮動（不再是唯一決定因素）
   const neuro = (character.personality["神經刀"] ?? 30) / 100;
-  const personalNoise = 1 + (runtimeRng() - 0.5) * 2 * (0.1 + neuro * 0.3);
+  let noiseSwing = 0.1 + neuro * 0.3;
+
+  // 老將：比賽經驗豐富，表現浮動壓縮(穩定)，但也代表爆發力上限被壓低
+  if (hasTalent(character, "veteran")) noiseSwing *= 0.55;
+
+  let personalNoise = 1 + (runtimeRng() - 0.5) * 2 * noiseSwing;
+
+  // F6仙人：對資源極度執著，順風時貪刀貪更多優勢、逆風時容易送更大——贏面/輸面都被放大
+  if (hasTalent(character, "f6_sage")) {
+    if (winProb > 0.5) personalNoise *= 1 + (winProb - 0.5) * 0.6;
+    else personalNoise *= 1 - (0.5 - winProb) * 0.6;
+  }
+
   kills = Math.max(0, Math.round(kills * personalNoise));
   assists = Math.max(0, Math.round(assists * personalNoise));
   deaths = Math.max(0, Math.round(deaths / Math.max(personalNoise, 0.4)));
+
+  // 這就是卡桑帝：團戰不容易死，死亡數額外打折
+  if (hasTalent(character, "this_is_kassadin")) deaths = Math.max(0, Math.round(deaths * 0.65));
 
   const kda = deaths === 0 ? kills + assists : (kills + assists) / deaths;
 

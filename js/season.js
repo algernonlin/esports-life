@@ -267,7 +267,13 @@ export const TRAINABLE_CORE_STATS = ["反應", "意識", "版本適應力"];
 export function trainCoreStat(character, stat, currentStageIndex, runtimeRng) {
   if (!TRAINABLE_CORE_STATS.includes(stat)) return { gain: 0, champBonus: null };
   const current = character.stats[stat] ?? 50;
-  const gain = clamp(1.5 * (1 - (current - 50) / 80), 0.2, 1.5);
+  let gain = clamp(1.5 * (1 - (current - 50) / 80), 0.2, 1.5);
+
+  // 戰術狂人：研究版本情報這項特別擅長，效果加成
+  if (stat === "版本適應力" && character.talents?.some((t) => t.id === "tactics_maniac")) {
+    gain *= 1.4;
+  }
+
   character.stats[stat] = clamp(Math.round((current + gain) * 10) / 10, 1, 99);
 
   // 30%機率，練基本功順便帶動一隻你已經在練的英雄手感（小幅加成，不算額外花點數）

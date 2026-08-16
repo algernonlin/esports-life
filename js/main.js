@@ -93,10 +93,10 @@ function doRoll(seedStr) {
   const name = el("player-name").value.trim() || "無名選手";
 
   character = createCharacter({ name, position: pendingRoll.position, region: pendingRoll.region, teamName: null });
-  character.stats = rollStats(seedRng, pendingRoll.position);
-  character.personality = rollPersonality(seedRng);
   character.talents = rollTalents(seedRng);
-  character.champions = rollInitialChampions(seedRng, pendingRoll.position);
+  character.stats = rollStats(seedRng, pendingRoll.position, character.talents);
+  character.personality = rollPersonality(seedRng);
+  character.champions = rollInitialChampions(seedRng, pendingRoll.position, character.talents);
 
   // 夜貓子：體能基礎值略低
   if (character.talents.some((t) => t.id === "night_owl")) {
@@ -616,11 +616,13 @@ function runInteractivePlayoff(isInternational, onComplete) {
       };
 
       if (showDice) {
-        const roll = rollTwoDice(runtimeRng);
+        // 最後大魔王：BO5絕境(2:2決勝局)觸發骰子時，直接骰出雙6保證過關
+        const isFinalBoss = isDecidingGame && character.talents.some((t) => t.id === "final_boss");
+        const roll = isFinalBoss ? { d1: 6, d2: 6, sum: 12 } : rollTwoDice(runtimeRng);
         const { target, prob: actualProb } = probabilityToTarget(winProb);
-        const passed = roll.sum >= target;
+        const passed = isFinalBoss ? true : roll.sum >= target;
         const result = resolveMatchWithResult(character, fullContext, passed, runtimeRng, winProb);
-        const moment = rollMatchMoment(runtimeRng);
+        const moment = isFinalBoss ? "絕境時刻，你彷彿變了一個人——這一波，沒有人能阻止你。" : rollMatchMoment(runtimeRng);
 
         el("event-title").textContent = `${isFinal ? "冠軍賽" : "四強賽"} 第${seriesGameIndex + 1}場 vs ${opponent?.name ?? "未知隊伍"}`;
         el("event-text").textContent = moment;

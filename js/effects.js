@@ -41,7 +41,13 @@ export function applyEffects(character, effects = [], log = []) {
         break;
       }
       case "team_delta": {
-        character.team[eff.stat] = clamp((character.team[eff.stat] ?? 50) + eff.value, 0, 100);
+        // 戰術狂人：團隊決策事件的效果雙向放大——研究戰術帶來的好感加成更多，
+        // 但意見衝突導致的好感/化學反應下滑也更嚴重（呼應「容易與教練隊友衝突」）
+        let teamVal = eff.value;
+        if (character.talents?.some((t) => t.id === "tactics_maniac")) {
+          teamVal *= teamVal > 0 ? 1.25 : 1.3;
+        }
+        character.team[eff.stat] = clamp((character.team[eff.stat] ?? 50) + teamVal, 0, 100);
         break;
       }
       case "flag_set": {

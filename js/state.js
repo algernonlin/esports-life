@@ -183,7 +183,7 @@ export const INNATE_TALENTS = [
   { id: "internal_war_god",  name: "內戰幻神",     rarity: "rare",      desc: "賽區內對戰（例行賽/季後賽）時能力有額外加成。" },
   { id: "sudden_gyro",       name: "突然的陀螺",   rarity: "rare",      desc: "國際賽（外戰）時能力會降低。" },
   { id: "seven_will",        name: "7の意志",      rarity: "legendary", desc: "在BO5的決勝局，全屬性提升15%。傳說在7的指引下，你將無所不能。" },
-  { id: "conceptual_god",    name: "概念神",       rarity: "rare",      desc: "每場比賽開始時，隨機進入三種形態之一：天神下凡（能力大幅提升）、及時雨（容易送頭）、穩健（能力不變化）。" },
+  { id: "conceptual_god",    name: "概念神",       rarity: "rare",      desc: "每場比賽開始時，隨機進入三種形態之一：天神下凡（能力大幅提升）、及時雨宋江（容易送頭）、穩健（能力不變化）。" },
   { id: "eternal_god",       name: "永遠滴神",     rarity: "rare",      desc: "逆風局（隊伍實力落後對手）容易carry比賽。" },
   { id: "self_proclaimed_goat", name: "世一XX",    rarity: "rare",      desc: "自封為某個位置的世界第一。壓力持續偏高，但連勝時增幅會滾雪球提升，連敗時則會被輿論反噬、能力下降得更慘。" },
   { id: "boy_kungfu",        name: "童子功",       rarity: "rare",      desc: "沒交女友時，獲得額外能力加成。" },
@@ -192,6 +192,22 @@ export const INNATE_TALENTS = [
   { id: "never_overtime",    name: "永不加班",     rarity: "common",    desc: "BO5系列賽前期能力強，但場次越打越後面，能力會開始下降。" },
   { id: "emotional_stability", name: "情緒穩定",   rarity: "common",    desc: "心態受事件影響的波動幅度較小，大好大壞都比較不明顯。" },
   { id: "grinder",           name: "刻苦訓練生",   rarity: "common",    desc: "每個賽段能額外多獲得1點訓練點數。" },
+
+  // ---- 以下7個天賦，實作分散在不同檔案，統一用 hasTalent(character, id) 判斷 ----
+  // 老將：比賽表現浮動壓縮(match.js的personalNoise)，穩定但少了爆發上限
+  { id: "veteran",           name: "老將",         rarity: "common",    desc: "比賽經驗豐富，穩定性高，但爆發力下降。" },
+  // 三板斧：開局英雄池洗成「3隻滿熟練度、其他0」(roll.js)，之後練其他英雄效率只有20%(champions.js)
+  { id: "three_axes",        name: "三板斧",       rarity: "common",    desc: "開始時，有三個英雄滿熟練度，但不容易練成其他英雄。" },
+  // 戰術狂人：研究版本情報訓練效果加成(season.js)，團隊決策類事件效果加成但衝突風險也加成(effects.js)
+  { id: "tactics_maniac",    name: "戰術狂人",     rarity: "common",    desc: "研究戰術速度快，團隊決策事件加成；但容易與教練或隊友意見衝突。" },
+  // 最後大魔王：BO5決勝局(2:2)觸發骰子時，直接骰出雙6保證過關(main.js的runInteractivePlayoff)
+  { id: "final_boss",        name: "最後大魔王",   rarity: "legendary", desc: "BO5絕境時，將CARRY隊伍。" },
+  // 孤狼：開局反應/意識額外加成，溝通/領導額外減損(roll.js)
+  { id: "lone_wolf",         name: "孤狼",         rarity: "common",    desc: "只會單幹，但不會打團戰。" },
+  // 這就是卡桑帝：死亡分配權重降低(match.js的POSITION_KDA_PROFILE死亡倍率之外再乘一層)
+  { id: "this_is_kassadin",  name: "這就是卡桑帝", rarity: "common",    desc: "團戰更不容易死亡。" },
+  // F6仙人：贏面被放大、輸面也被放大(match.js的personalNoise在順風/逆風時進一步加乘)
+  { id: "f6_sage",           name: "F6仙人",       rarity: "common",    desc: "對野區資源有非同一般的執著，容易入侵獲得大優勢，但野區一劣勢就會送很大。" },
 ];
 
 // ---- 角色狀態物件 factory ----

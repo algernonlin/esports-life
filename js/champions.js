@@ -273,6 +273,11 @@ export function trainChampion(character, championId, points, currentStageIndex) 
   if (character.talents?.some((t) => t.id === "rift_inventor")) efficiency *= 1.3;
   if (character.talents?.some((t) => t.id === "glass_body")) efficiency *= 1.15;
 
+  // 三板斧：只有開局那3隻簽名英雄能正常練，練其他英雄效率只剩20%——已經定型，很難再學新英雄
+  if (character.talents?.some((t) => t.id === "three_axes") && !entry.signature) {
+    efficiency *= 0.2;
+  }
+
   for (let i = 0; i < points; i++) {
     const diminish = 1 - entry.proficiency / 120; // 越接近滿熟練，單點效益越低
     const gain = clamp(6 * efficiency * Math.max(diminish, 0.15), 0.5, 8);

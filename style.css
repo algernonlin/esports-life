@@ -253,7 +253,8 @@ body {
 .talent-tag b { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.02em; }
 .talent-tag span { color: var(--text-secondary); }
 .talent-tag.rarity-legendary { border-left-color: var(--accent-warm); }
-.talent-tag.rarity-rare { border-left-color: var(--accent-2); }
+.talent-tag.rarity-legendary b { color: var(--accent-warm); }
+.talent-tag.rarity-rare b { color: var(--accent-warm); }
 .empty-hint { color: var(--text-faint); font-size: 13px; }
 .empty-hint-inline { color: var(--text-faint); font-size: 13px; }
 
