@@ -618,3 +618,16 @@ button:focus-visible, input:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* ---------------- Build Version Tag ---------------- */
+.build-version {
+  position: fixed;
+  right: 10px; bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  opacity: 0.5;
+  z-index: 999;
+  pointer-events: none;
+  user-select: none;
+}
