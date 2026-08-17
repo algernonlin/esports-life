@@ -7,8 +7,8 @@ export const POSITIONS = ["上路", "打野", "中路", "ADC", "輔助"];
 
 export const POSITION_SPECIALTY = {
   "上路": "單線抗壓",
-  "打野": "節奏感",
-  "中路": "節奏感",
+  "打野": "節奏",
+  "中路": "節奏",
   "ADC": "運營",
   "輔助": "視野控制",
 };

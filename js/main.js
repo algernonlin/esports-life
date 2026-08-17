@@ -277,7 +277,10 @@ function renderDashboard() {
   el("dash-roster").textContent = { starter: "先發", rotation: "輪換", bench: "替補" }[character.rosterStatus];
   el("dash-roster").className = "badge badge-" + character.rosterStatus;
 
-  el("dash-stats").innerHTML = STAT_KEYS.map((k) => statBarHtml(k, character.stats[k])).join("");
+  // 專精能力值(節奏/單線抗壓/運營/視野控制，依位置而定)之前漏掉沒顯示在左欄，
+  // 只有擲骰畫面有正確帶到，這裡補上同樣的邏輯
+  el("dash-stats").innerHTML = STAT_KEYS.concat(Object.keys(character.stats).filter((k) => !STAT_KEYS.includes(k)))
+    .map((k) => statBarHtml(k, character.stats[k])).join("");
   el("dash-dynamic").innerHTML = `
     ${statBarHtml("心態", character.dynamic["心態"])}
     ${statBarHtml("體能", character.dynamic["體能"])}
