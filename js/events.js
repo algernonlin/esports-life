@@ -952,12 +952,12 @@ export const EVENTS = [
       {
         label: "爆就爆",
         outcomes: [
+          { probability: 0.2, resultText: "對話截圖被貼上「最強聯盟」，大家覺得沒什麼，你只是犯了天下男人都會犯的錯。", effects: [
+            { type: "dynamic_delta", stat: "壓力", value: 10 }, { type: "dynamic_delta", stat: "心態", value: 8 },
+          ]},
           { probability: 0.8, resultText: "對話截圖被貼上「最強聯盟」，出軌實錘，網友紛紛到你出軌的對象底下朝聖。", effects: [
             { type: "fame_delta", value: -30 }, { type: "team_delta", stat: "reputation", value: -15 },
             { type: "flag_set", flag: "已被抓到出軌" }, { type: "flag_set", flag: "外遇中" },
-          ]},
-          { probability: 0.2, resultText: "對話截圖被貼上「最強聯盟」，大家覺得沒什麼，你只是犯了天下男人都會犯的錯。", effects: [
-            { type: "dynamic_delta", stat: "壓力", value: 10 }, { type: "dynamic_delta", stat: "心態", value: 8 },
           ]},
         ],
       },
