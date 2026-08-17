@@ -432,21 +432,27 @@ function downloadShareCard() {
 
 function generateTitle(c) {
   // 依嚴重程度/特殊性排序判斷，越前面優先權越高
-  if (c.flags["生涯終止_涉賭"]) return "涉賭爭議球員";
-  if (c.flags["家暴爭議"]) return "爭議纏身的問題選手";
-  if (c.flags["外遇中"]) return "緋聞不斷的花花公子";
+  if (c.flags["生涯終止_涉賭"]) return "涉賭";
+  if (c.flags["家暴爭議"]) return "家暴";
+  if (c.flags["已渡化嬰靈"]) return "嬰靈之王";
+  if (c.flags["已被抓到出軌"]) return "渣男";
+  if (c.flags["外遇中"]) return "花花公子";
   if (c.flags["毒舌人設"]) return "嘴強王者";
+  if (c.flags["曾要求墮胎"]) return "胎男";
+  if (c.flags["偷偷聯繫粉絲"]) return "草粉";
+  if (c.flags["洗澡狗"]) return "洗澡狗";
+  if (c.flags["乳牛"]) return "乳牛";
   if (c.careerCounters.worldsAppearances >= 2) return "世界賽常客";
   if (c.careerCounters.kills >= 1000) return "生涯千殺傳奇";
   if (c.fame >= 85) return "話題王者";
   if (c.chronicInjuries.length >= 2) return "傷病纏身的老將";
-  if (c.team.chemistry <= 25) return "更衣室的不安定因子";
+  if (c.team.chemistry <= 25) return "隊伍毒瘤";
   if (c.careerCounters.wins >= 150) return "傳奇老兵";
   if (c.careerCounters.wins >= 100) return "百勝老兵";
-  if (c.flags["轉型意識流"]) return "以智取勝的智將";
-  if (c.flags["主動退役"]) return "全身而退的職業選手";
-  if (c.flags["戰績淘汰"]) return "被時代淘汰的選手";
-  if (c.meta.careerYear - 2026 <= 2 && c.retired) return "曇花一現的新秀";
+  if (c.flags["轉型意識流"]) return "以智取勝";
+  if (c.flags["主動退役"]) return "急流勇退";
+  if (c.flags["戰績淘汰"]) return "賴著不退役";
+  if (c.meta.careerYear - 2026 <= 2 && c.retired) return "曇花一現";
   return "職業選手";
 }
 
@@ -458,8 +464,40 @@ function retirementReasonText(c) {
 }
 
 // ---------------- 賽段推進主邏輯 ----------------
+// 訓練類log合併：同一賽段內多次點擊訓練按鈕，不要每次都各自一行洗版，
+// 累積到緩衝區，等賽段推進時才合併成一行輸出
+function bufferTraining(kind, detail) {
+  const buf = character.flags.__trainingBuffer ?? (character.flags.__trainingBuffer = { core: {}, champBonusHit: false, fitnessClicks: 0, relaxClicks: 0 });
+  if (kind === "core") {
+    buf.core[detail.stat] = (buf.core[detail.stat] ?? 0) + detail.gain;
+    if (detail.champBonus) buf.champBonusHit = true;
+  } else if (kind === "fitness") {
+    buf.fitnessClicks++;
+  } else if (kind === "relax") {
+    buf.relaxClicks++;
+  }
+}
+
+function flushTrainingLog() {
+  const buf = character.flags.__trainingBuffer;
+  if (!buf) return;
+  const parts = [];
+  const coreEntries = Object.entries(buf.core);
+  if (coreEntries.length) {
+    parts.push("本賽段訓練：" + coreEntries.map(([stat, gain]) => `${stat}+${gain.toFixed(1)}`).join("、"));
+  }
+  if (buf.fitnessClicks > 0) parts.push(`保養體能${buf.fitnessClicks}次`);
+  if (buf.relaxClicks > 0) parts.push(`紓壓${buf.relaxClicks}次`);
+  if (parts.length) {
+    const bonusNote = buf.champBonusHit ? "，練習時順便帶動了部分英雄的手感" : "";
+    pushLog(parts.join("，") + bonusNote + "。");
+  }
+  delete character.flags.__trainingBuffer;
+}
+
 function advance() {
   if (!character || character.retired) return;
+  flushTrainingLog(); // 上個賽段累積的訓練，合併輸出成一行
   const stageType = SEASON_FLOW[character.meta.currentStageIndex].type;
 
   grantTrainingPoints(character, stageType);
@@ -500,8 +538,8 @@ function advance() {
     pushLog(`例行賽戰績 ${teamWins}勝${teamLosses}敗${streakNote}。${rosterNote}`);
 
     const honors = evaluateStageHonors(character, stageMvpCount, wins + losses, wins, losses, totalGames);
-    if (honors.regularSeasonMVP) pushLog(`🏆 榮獲本賽段常規賽MVP！`);
-    else if (honors.bestXI) pushLog(`⭐ 入選本賽段最佳陣容。`);
+    if (honors.regularSeasonMVP) { character.fame = clamp(character.fame + 5, 0, 100); pushLog(`🏆 榮獲本賽段常規賽MVP！`); }
+    else if (honors.bestXI) { character.fame = clamp(character.fame + 3, 0, 100); pushLog(`⭐ 入選本賽段最佳陣容。`); }
 
     maybeTriggerEvent();
     checkMilestones(character, log);
@@ -532,15 +570,20 @@ function advance() {
           character.dynamic["心態"] = clamp(character.dynamic["心態"] - 10, 0, 100);
           pushLog(`打完國際賽後有點鬆懈，狀態出現下滑。`);
         }
+        // 國際賽不管有沒有奪冠，都給一次事件觸發機會——賽事限定事件(例如世界賽期間女友約會)
+        // 才有機會出現，不像國內賽區只有奪冠才觸發事件
+        if (result === "冠軍") character.flags["剛奪冠"] = true;
+        maybeTriggerEvent();
+        delete character.flags["剛奪冠"];
       } else {
         character.seasonRecord[stageKey].playoffResult = result;
         if (result === "冠軍" || result === "亞軍") character.team.favor = clamp(character.team.favor + 8, 0, 100);
         pushLog(`季後賽結果：${result}。`);
-      }
-      if (result === "冠軍") {
-        character.flags["剛奪冠"] = true;
-        maybeTriggerEvent();
-        delete character.flags["剛奪冠"];
+        if (result === "冠軍") {
+          character.flags["剛奪冠"] = true;
+          maybeTriggerEvent();
+          delete character.flags["剛奪冠"];
+        }
       }
       finishAdvance();
     });
@@ -663,6 +706,7 @@ function runInteractivePlayoff(isInternational, onComplete) {
         character.careerCounters.prizeMoney += prize;
         const fmvpBonus = isInternational && character.meta.currentStageName === "電競世界盃EWC" && gotFmvp ? 30 : 0;
         character.careerCounters.prizeMoney += fmvpBonus;
+        character.fame = clamp(character.fame + (isInternational ? 15 : 8), 0, 100); // 奪冠帶來的知名度，國際賽份量更重
         pushLog(`🏆 拿下冠軍！${gotFmvp ? "並獲選FMVP！" : ""}獲得獎金 ${(prize + fmvpBonus).toLocaleString()}萬。`);
         onComplete("冠軍");
       } else {
@@ -670,6 +714,7 @@ function runInteractivePlayoff(isInternational, onComplete) {
         else character.careerCounters.domesticRunnerUps++;
         const prize = computePrizeMoney(character, isInternational, character.meta.currentStageName, "亞軍");
         character.careerCounters.prizeMoney += prize;
+        character.fame = clamp(character.fame + (isInternational ? 8 : 4), 0, 100);
         pushLog(`惜敗，獲得亞軍，獎金 ${prize.toLocaleString()}萬。`);
         onComplete("亞軍");
       }
@@ -1021,7 +1066,7 @@ el("btn-fitness").addEventListener("click", () => {
   if (character.trainingPoints < 1) return;
   character.trainingPoints -= 1;
   character.fitnessBoost = (character.fitnessBoost ?? 0) + 0.1;
-  pushLog(`花費訓練點數保養身體，下次衰退判定機率降低。`);
+  bufferTraining("fitness");
   renderDashboard();
   saveGame();
 });
@@ -1029,7 +1074,7 @@ el("btn-relax").addEventListener("click", () => {
   if (character.trainingPoints < 1) return;
   character.trainingPoints -= 1;
   character.dynamic["壓力"] = clamp(character.dynamic["壓力"] - 15, 0, 100);
-  pushLog(`花費訓練點數放鬆紓壓，壓力值下降。`);
+  bufferTraining("relax");
   renderDashboard();
   saveGame();
 });
@@ -1039,8 +1084,7 @@ document.querySelectorAll(".btn-core-train").forEach((b) =>
     const stat = b.dataset.stat;
     character.trainingPoints -= 1;
     const { gain, champBonus } = trainCoreStat(character, stat, character.meta.currentStageIndex, runtimeRng);
-    const champNote = champBonus ? `，練習時順便帶動了「${getChampion(champBonus)?.name ?? champBonus}」的手感` : "";
-    pushLog(`花費訓練點數加強「${stat}」，能力值提升了 ${gain.toFixed(1)}${champNote}。`);
+    bufferTraining("core", { stat, gain, champBonus });
     renderDashboard();
     saveGame();
   })

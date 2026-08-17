@@ -14,11 +14,11 @@ export const POSITION_SPECIALTY = {
 };
 
 // 賽區薪資市場倍率：反映真實世界薪資水準落差（市場規模跟資本，不是純競技強度）
-// LPL資本最雄厚、LCK/LTA(LCS)其次、LEC基準、LCP市場最小
+// LPL資本最雄厚、LCK/LCS其次、LEC基準、LCP市場最小
 export const REGION_SALARY_MULTIPLIER = {
   LPL: 1.4,
   LCK: 1.1,
-  LTA: 1.1,
+  LCS: 1.1,
   LEC: 1.0,
   LCP: 0.6,
 };
@@ -40,7 +40,7 @@ function expandPositionStrength(teamName, baseStrength) {
 }
 
 // ---- 賽區 ----
-export const REGIONS = ["LPL", "LCK", "LEC", "LTA", "LCP"];
+export const REGIONS = ["LPL", "LCK", "LEC", "LCS", "LCP"];
 
 // 2026 真實隊伍資料，依照 LoL Esports Global Power Rankings（2026/8/14）換算。
 // 換算公式：baseStrength = 60 + (GPR分數-1092)/(1533-1092)*35，四捨五入，範圍約60-95。
@@ -96,7 +96,7 @@ export const TEAMS = {
     { name: "SK",   baseStrength: 63 },
     { name: "TH",   baseStrength: 61 },
   ], "LEC"),
-  LTA: buildTeams([
+  LCS: buildTeams([
     { name: "LYON",  baseStrength: 85 },
     { name: "FLY",   baseStrength: 81 },
     { name: "TLAW",  baseStrength: 80 },
@@ -105,7 +105,7 @@ export const TEAMS = {
     { name: "SR",    baseStrength: 67 },
     { name: "DSG",   baseStrength: 66 },
     { name: "DIG",   baseStrength: 63 },
-  ], "LTA"),
+  ], "LCS"),
   LCP: buildTeams([
     { name: "TSW",  baseStrength: 80 },
     { name: "CFO",  baseStrength: 78 },
@@ -183,7 +183,7 @@ export const INNATE_TALENTS = [
   { id: "internal_war_god",  name: "內戰幻神",     rarity: "rare",      desc: "賽區內對戰（例行賽/季後賽）時能力有額外加成。" },
   { id: "sudden_gyro",       name: "突然的陀螺",   rarity: "rare",      desc: "國際賽（外戰）時能力會降低。" },
   { id: "seven_will",        name: "7の意志",      rarity: "legendary", desc: "在BO5的決勝局，全屬性提升15%。傳說在7的指引下，你將無所不能。" },
-  { id: "conceptual_god",    name: "概念神",       rarity: "rare",      desc: "每場比賽開始時，隨機進入三種形態之一：天神下凡（能力大幅提升）、及時雨宋江（容易送頭）、穩健（能力不變化）。" },
+  { id: "conceptual_god",    name: "概念神",       rarity: "rare",      desc: "每場比賽開始時，隨機進入三種形態之一：天神下凡（能力大幅提升）、及時雨（容易送頭）、穩健（能力不變化）。" },
   { id: "eternal_god",       name: "永遠滴神",     rarity: "rare",      desc: "逆風局（隊伍實力落後對手）容易carry比賽。" },
   { id: "self_proclaimed_goat", name: "世一XX",    rarity: "rare",      desc: "自封為某個位置的世界第一。壓力持續偏高，但連勝時增幅會滾雪球提升，連敗時則會被輿論反噬、能力下降得更慘。" },
   { id: "boy_kungfu",        name: "童子功",       rarity: "rare",      desc: "沒交女友時，獲得額外能力加成。" },
@@ -195,20 +195,21 @@ export const INNATE_TALENTS = [
 
   // ---- 以下7個天賦，實作分散在不同檔案，統一用 hasTalent(character, id) 判斷 ----
   // 老將：比賽表現浮動壓縮(match.js的personalNoise)，穩定但少了爆發上限
-  { id: "veteran",           name: "老將",         rarity: "common",    desc: "比賽經驗豐富，穩定性高，但爆發力下降。" },
+  { id: "veteran",           name: "老將",         rarity: "common",    desc: "比賽經驗豐富，穩定性高；但爆發力下降。" },
   // 三板斧：開局英雄池洗成「3隻滿熟練度、其他0」(roll.js)，之後練其他英雄效率只有20%(champions.js)
-  { id: "three_axes",        name: "三板斧",       rarity: "common",    desc: "開始時，有三個英雄滿熟練度，但不容易練成其他英雄。" },
+  { id: "three_axes",        name: "三板斧",       rarity: "common",    desc: "開始時，有三個英雄滿熟練度，其他都是0，且訓練其他英雄的效果只有一般的20%。" },
   // 戰術狂人：研究版本情報訓練效果加成(season.js)，團隊決策類事件效果加成但衝突風險也加成(effects.js)
   { id: "tactics_maniac",    name: "戰術狂人",     rarity: "common",    desc: "研究戰術速度快，團隊決策事件加成；但容易與教練或隊友意見衝突。" },
   // 最後大魔王：BO5決勝局(2:2)觸發骰子時，直接骰出雙6保證過關(main.js的runInteractivePlayoff)
-  { id: "final_boss",        name: "最後大魔王",   rarity: "legendary", desc: "BO5絕境時，將CARRY隊伍。" },
+  { id: "final_boss",        name: "最後大魔王",   rarity: "legendary", desc: "BO5絕境時，若觸發骰子會直接骰出兩個6。" },
   // 孤狼：開局反應/意識額外加成，溝通/領導額外減損(roll.js)
-  { id: "lone_wolf",         name: "孤狼",         rarity: "common",    desc: "只會單幹，但不會打團戰。" },
+  { id: "lone_wolf",         name: "孤狼",         rarity: "common",    desc: "反應意識都很高，但不會打團戰(溝通領導降低)。" },
   // 這就是卡桑帝：死亡分配權重降低(match.js的POSITION_KDA_PROFILE死亡倍率之外再乘一層)
   { id: "this_is_kassadin",  name: "這就是卡桑帝", rarity: "common",    desc: "團戰更不容易死亡。" },
   // F6仙人：贏面被放大、輸面也被放大(match.js的personalNoise在順風/逆風時進一步加乘)
   { id: "f6_sage",           name: "F6仙人",       rarity: "common",    desc: "對野區資源有非同一般的執著，容易入侵獲得大優勢，但野區一劣勢就會送很大。" },
 ];
+
 // ---- 角色狀態物件 factory ----
 export function createCharacter({ name, position, region, teamName }) {
   return {

@@ -121,7 +121,10 @@ export function applyGameResult(character, result) {
   character.careerCounters.deaths += result.deaths;
   character.careerCounters.assists += result.assists;
   if (result.win) character.careerCounters.wins++; else character.careerCounters.losses++;
-  if (result.mvp) character.careerCounters.mvps++;
+  if (result.mvp) {
+    character.careerCounters.mvps++;
+    character.fame = clamp(character.fame + 1, 0, 100); // 單場MVP，知名度小幅累積
+  }
 }
 
 export function simulatePlayoff(character, runtimeRng, { isInternational = false } = {}) {
@@ -366,7 +369,7 @@ const REGION_SALARY_RANGE = {
   LPL: { floor: 110, ceiling: 4700 },
   LCK: { floor: 165, ceiling: 5000 },
   LEC: { floor: 210, ceiling: 3450 },
-  LTA: { floor: 245, ceiling: 1600 },
+  LCS: { floor: 245, ceiling: 1600 },
   LCP: { floor: 50,  ceiling: 480 },
 };
 const ROSTER_SIGNING_FACTOR = { starter: 1.0, rotation: 0.55, bench: 0.25 };
