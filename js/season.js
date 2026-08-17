@@ -474,7 +474,7 @@ export function evaluateStageHonors(character, stageMvpCount, gamesPlayed, wins,
   const eligibleForHonors = participationRate >= 0.7;
 
   const regularSeasonMVP = eligibleForHonors && mvpRate >= 0.35 && winningRecord;
-  const bestXI = eligibleForHonors && !regularSeasonMVP && mvpRate >= 0.2;
+  const bestXI = eligibleForHonors && !regularSeasonMVP && mvpRate >= 0.2 && wins >= losses;
 
   if (regularSeasonMVP) {
     character.careerCounters.regularSeasonMVPs++;

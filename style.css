@@ -341,7 +341,9 @@ body {
 
 .train-controls { display: flex; gap: 8px; margin-bottom: 14px; }
 .train-controls select { flex: 1; }
-.train-controls-pair button { flex: 1; }
+.train-controls-pair button {
+  flex: 0 0 calc((100% - 16px) / 3); /* 固定跟下排三個按鈕同寬，不撐滿整行，上排右側會留一點空白 */
+}
 .btn-support-train {
   flex: 1;
   background: var(--bg-inset);

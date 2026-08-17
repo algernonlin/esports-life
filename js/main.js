@@ -457,11 +457,15 @@ function retirementReasonText(c) {
 // 訓練類log合併：同一賽段內多次點擊訓練按鈕，不要每次都各自一行洗版，
 // 累積到緩衝區，等賽段推進時才合併成一行輸出
 function bufferTraining(kind, detail) {
-  const buf = character.flags.__trainingBuffer ?? (character.flags.__trainingBuffer = { core: {}, champBonusHit: false, tierChampCount: 0, fitnessClicks: 0, relaxClicks: 0 });
+  const buf = character.flags.__trainingBuffer ?? (character.flags.__trainingBuffer = { core: {}, champBonusHit: false, champGains: {}, fitnessClicks: 0, relaxClicks: 0 });
   if (kind === "core") {
     buf.core[detail.stat] = (buf.core[detail.stat] ?? 0) + detail.gain;
     if (detail.champBonus) buf.champBonusHit = true;
-    buf.tierChampCount += detail.tierCount ?? 0;
+    if (detail.champGains) {
+      for (const [id, g] of Object.entries(detail.champGains)) {
+        buf.champGains[id] = (buf.champGains[id] ?? 0) + g;
+      }
+    }
   } else if (kind === "fitness") {
     buf.fitnessClicks++;
   } else if (kind === "relax") {
@@ -481,8 +485,15 @@ function flushTrainingLog() {
   if (buf.relaxClicks > 0) parts.push(`紓壓${buf.relaxClicks}次`);
   if (parts.length) {
     const bonusNote = buf.champBonusHit ? "，練習時順便帶動了部分英雄的手感" : "";
-    const tierNote = buf.tierChampCount > 0 ? `，同時帶動了${buf.tierChampCount}人次的英雄熟練度` : "";
-    pushLog(parts.join("，") + bonusNote + tierNote + "。");
+    // 不列一堆抽象的「N人次」，直接講清楚：這賽段練最多的那隻英雄漲了多少熟練度
+    const gainEntries = Object.entries(buf.champGains ?? {});
+    let topChampNote = "";
+    if (gainEntries.length) {
+      const [topId, topGain] = gainEntries.sort((a, b) => b[1] - a[1])[0];
+      const champ = getChampion(topId);
+      if (champ && topGain > 0) topChampNote = `，${champ.name}提高了${Math.round(topGain)}熟練度`;
+    }
+    pushLog(parts.join("，") + bonusNote + topChampNote + "。");
   }
   delete character.flags.__trainingBuffer;
 }
@@ -492,25 +503,45 @@ function flushTrainingLog() {
 // 研究版本情報→當前版本、你這個位置的版本英雄（追版本）
 function applyTierChampionTraining(stat, points = 1) {
   const myPos = character.meta.position;
-  const owned = Object.keys(character.champions)
-    .map((id) => ({ id, eff: effectiveProficiency(character, id, myPos) }))
-    .sort((a, b) => b.eff - a.eff);
+  const eligible = CHAMPIONS.filter((c) => c.primary === myPos || c.secondary.includes(myPos));
+  // 涵蓋你已擁有跟還沒練過的該路英雄（沒練過的預設熟練度0），才能真的排出「最高/最低」
+  const withEff = eligible.map((c) => ({
+    id: c.id,
+    eff: character.champions[c.id] ? effectiveProficiency(character, c.id, myPos) : 0,
+  })).sort((a, b) => b.eff - a.eff);
+
+  const randomEligibleId = () => eligible[Math.floor(runtimeRng() * eligible.length)]?.id;
 
   let targets = [];
   if (stat === "反應") {
-    targets = owned.slice(0, 3).map((o) => o.id);
+    // 個人操作：熟練度最高2隻(練你的招牌) + 隨機1隻該路英雄
+    const top2 = withEff.slice(0, 2).map((o) => o.id);
+    targets = [...new Set([...top2, randomEligibleId()])];
   } else if (stat === "意識") {
-    targets = owned.slice(3, 6).map((o) => o.id);
+    // 教練覆盤：熟練度最低2隻(但排除完全沒練過的0分英雄，要真的是「有基礎但不夠熟」才符合覆盤的語意)
+    // + 隨機1隻該路英雄。如果已經練過的英雄不到2隻，就從剩下有練過的裡面盡量湊
+    const practiced = withEff.filter((o) => o.eff > 0);
+    const bottom2 = practiced.slice(-2).map((o) => o.id);
+    targets = [...new Set([...bottom2, randomEligibleId()])];
   } else if (stat === "版本適應力") {
+    // 研究版本情報：當前版本、該路的版本英雄裡隨機挑3個（不是全部都練）
     const metaIds = character.seasonRecord.metaChampions ?? [];
-    targets = metaIds.filter((id) => {
+    const myMetaChamps = metaIds.filter((id) => {
       const c = getChampion(id);
       return c && (c.primary === myPos || c.secondary.includes(myPos));
     });
+    const shuffled = [...myMetaChamps].sort(() => runtimeRng() - 0.5);
+    targets = shuffled.slice(0, 3);
   }
 
-  targets.forEach((id) => trainChampion(character, id, points, character.meta.currentStageIndex));
-  return targets.length;
+  targets = targets.filter(Boolean);
+  const gains = {};
+  targets.forEach((id) => {
+    const before = character.champions[id]?.proficiency ?? 0;
+    trainChampion(character, id, points, character.meta.currentStageIndex);
+    gains[id] = (gains[id] ?? 0) + (character.champions[id].proficiency - before);
+  });
+  return { count: targets.length, gains };
 }
 
 function advance() {
@@ -1170,8 +1201,8 @@ document.querySelectorAll(".btn-core-train").forEach((b) =>
     const stat = b.dataset.stat;
     character.trainingPoints -= 1;
     const { gain, champBonus } = trainCoreStat(character, stat, character.meta.currentStageIndex, runtimeRng);
-    const tierCount = applyTierChampionTraining(stat, 1);
-    bufferTraining("core", { stat, gain, champBonus, tierCount });
+    const { gains: tierGains } = applyTierChampionTraining(stat, 1);
+    bufferTraining("core", { stat, gain, champBonus, champGains: tierGains });
     renderChampionPanel();
     renderDashboard();
     saveGame();
