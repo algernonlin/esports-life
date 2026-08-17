@@ -262,8 +262,8 @@ function startCareer() {
 }
 
 function pushLog(text) {
-  log.unshift({ year: character.meta.careerYear, stage: character.meta.currentStageName, text });
-  if (log.length > 40) log.pop();
+  log.push({ year: character.meta.careerYear, stage: character.meta.currentStageName, text });
+  if (log.length > 40) log.shift();
 }
 
 function renderDashboard() {

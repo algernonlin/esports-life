@@ -752,7 +752,7 @@ export const EVENTS = [
   {
     id: "event_pregnancy_dilemma",
     category: "感情",
-    weight: 4,
+    weight: 3,
     cooldown: 20,
     conditions: [{ OR: [{ flag: "有秘密女友" }, { flag: "有女友" }, { flag_not: "出軌中" }, { flag_not: "外遇中" }] }, { flag_not: "已處理感情危機" }],
     title: "意外的消息",
@@ -779,7 +779,7 @@ export const EVENTS = [
   {
     id: "event_relationship_conflict",
     category: "感情",
-    weight: 1,
+    weight: 2,
     cooldown: 20,
     conditions: [{ OR: [{ flag: "有秘密女友" }, { flag: "有女友" }] }, { personality: "決斷風格", min: 40 }],
     title: "失控的爭執",
@@ -911,7 +911,7 @@ export const EVENTS = [
   {
     id: "event_baby_spirit_gate",
     category: "感情",
-    weight: 5,
+    weight: 1,
     cooldown: 999,
     conditions: [{ flag: "曾要求墮胎" }, { flag_not: "已渡化嬰靈" }],
     title: "嬰靈之門",
@@ -1346,7 +1346,7 @@ export const EVENTS = [
 // 一旦抽中就歸零重來。彩蛋/感情基礎權重很小(彩蛋只有2，總池124)，用「乘倍率」幾乎沒感覺，
 // 改用「加法」直接疊加權重值，才能在真實遊戲一年僅約7次抽選的頻率下，有效逼近保底
 const PITY_CATEGORIES = ["彩蛋", "感情"]; // 想加其他分類進保底機制，直接加進這個陣列就好
-const PITY_ADD_PER_MISS = 10; // 每次沒抽到，該分類權重直接加10（相對池子總權重~124是有感的漲幅）
+const PITY_ADD_PER_MISS = 2; // 每次沒抽到，該分類權重直接加10（相對池子總權重~124是有感的漲幅）
 const PITY_MAX_ADD = 120; // 上限，避免長期沒資格符合的分類權重無限膨脹
 
 export function pickEvent(character, rng, stageType) {
