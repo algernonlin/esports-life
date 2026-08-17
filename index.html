@@ -244,22 +244,17 @@
 
       <div class="panel">
         <h3 class="section-title small">英雄訓練　<span class="mono accent-text" id="training-points">0</span> 點可用</h3>
-        <div class="train-controls">
-          <select id="champion-select" class="text-input"></select>
-          <button id="btn-train" class="btn-small">花1點練習</button>
-        </div>
-        <div class="train-controls">
-          <button id="btn-fitness" class="btn-ghost" style="flex:1;">花1點保養體能（降低下次衰退機率）</button>
-        </div>
-        <div class="train-controls">
-          <button id="btn-relax" class="btn-ghost" style="flex:1;">花1點紓壓（降低壓力值）</button>
-        </div>
+        <p class="train-hint">加強項目（只能練這三項，其餘靠事件）同時會帶動對應熟練度區間的英雄手感</p>
 
-        <h4 class="core-train-title">加強項目（只能練這三項，其餘靠事件）</h4>
         <div class="train-controls">
           <button class="btn-core-train" data-stat="反應">加練個人操作</button>
           <button class="btn-core-train" data-stat="意識">和教練覆盤</button>
           <button class="btn-core-train" data-stat="版本適應力">研究版本情報</button>
+        </div>
+
+        <div class="train-controls train-controls-pair">
+          <button id="btn-fitness" class="btn-ghost">保養體能</button>
+          <button id="btn-relax" class="btn-ghost">紓壓</button>
         </div>
       </div>
     </main>

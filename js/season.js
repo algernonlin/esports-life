@@ -124,6 +124,7 @@ export function applyGameResult(character, result) {
   if (result.mvp) {
     character.careerCounters.mvps++;
     character.fame = clamp(character.fame + 1, 0, 100); // 單場MVP，知名度小幅累積
+    character.trainingPoints += 1;
   }
 }
 
@@ -217,16 +218,24 @@ export function rollMetaVersion(character, runtimeRng) {
 // -------------------------------------------------------------
 const POSITION_DECLINE_MULTIPLIER = { "中路": 1.15, "ADC": 1.15, "上路": 1.0, "打野": 1.0, "輔助": 0.75 };
 
-function baseDeclineProbability(age) {
-  if (age < 21) return 0;
-  if (age <= 24) return 0.03;
-  if (age <= 28) return 0.05 + (age - 24) * 0.05;
-  return clamp(0.25 + (age - 28) * 0.07, 0, 0.75);
+// 衰退起始年齡：25~30之間動態決定，不是所有人都固定同一個起跑點——
+// 體能/心態維持得越好，起始年齡越晚(最晚30歲)；狀態差的話最早25歲就可能開始走下坡
+function baseDeclineProbability(character) {
+  const age = character.meta.age;
+  const stamina = character.dynamic?.["體能"] ?? 50;
+  const mood = character.dynamic?.["心態"] ?? 50;
+  const conditionAvg = (stamina + mood) / 2;
+  const onsetAge = 25 + (conditionAvg / 100) * 5; // 100分狀態→30歲起衰；0分狀態→25歲起衰
+
+  if (age < onsetAge) return 0;
+  const yearsPastOnset = age - onsetAge;
+  if (yearsPastOnset <= 4) return 0.03 + yearsPastOnset * 0.05;
+  return clamp(0.25 + (yearsPastOnset - 4) * 0.07, 0, 0.75);
 }
 
 export function applyAgeDecay(character, runtimeRng) {
   const age = character.meta.age;
-  let prob = baseDeclineProbability(age);
+  let prob = baseDeclineProbability(character);
   if (prob <= 0) return;
 
   prob *= POSITION_DECLINE_MULTIPLIER[character.meta.position] ?? 1.0;

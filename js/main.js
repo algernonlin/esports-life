@@ -335,32 +335,19 @@ function renderChampionPanel() {
   const myPos = character.meta.position;
   const metaIds = character.seasonRecord.metaChampions ?? [];
 
-  // 訓練下拉選單：依熟練度高到低排序，直接顯示數值
-  const relevant = CHAMPIONS
-    .filter((c) => c.primary === myPos || c.secondary.includes(myPos))
-    .map((c) => ({ champ: c, proficiency: character.champions[c.id]?.proficiency ?? 0 }))
-    .sort((a, b) => b.proficiency - a.proficiency);
-  el("champion-select").innerHTML = relevant
-    .map(({ champ, proficiency }) => `<option value="${champ.id}">${champ.name}（${Math.round(proficiency)}）</option>`)
-    .join("");
-
-  // 右側側欄：全部五個位置的版本英雄一覽，不只你自己的位置
-  el("meta-champion-list").innerHTML = POSITIONS.map((pos) => {
-    const champs = metaIds.map((id) => getChampion(id)).filter((c) => c && c.primary === pos);
-    if (!champs.length) return "";
-    return `
-      <div class="meta-champ-group">
-        <div class="meta-champ-title">${pos}</div>
-        <div class="meta-champ-chips">${champs.map((c) => `<span class="meta-champ-chip ${character.champions[c.id] ? "owned" : ""}">${c.name}</span>`).join("")}</div>
-      </div>`;
-  }).join("");
+  // 本賽段版本英雄：只顯示自己這一路，不用五路都列出來
+  const myMetaChamps = metaIds.map((id) => getChampion(id)).filter((c) => c && c.primary === myPos);
+  el("meta-champion-list").innerHTML = myMetaChamps.length
+    ? `<div class="meta-champ-chips">${myMetaChamps.map((c) => `<span class="meta-champ-chip ${character.champions[c.id] ? "owned" : ""}">${c.name}</span>`).join("")}</div>`
+    : `<div class="empty-hint">本賽段你這個位置沒有特別強勢的版本英雄。</div>`;
 
   // 左側欄：隊伍平均戰力（併入隊伍區塊）
   const posStrengths = Object.values(character.team.positionStrength ?? {});
   const avgStrength = posStrengths.length ? Math.round(posStrengths.reduce((a, b) => a + b, 0) / posStrengths.length) : character.team.baseStrength;
   el("team-avg-strength").textContent = avgStrength;
 
-  // 右側欄：個人熟練度前五英雄（依有效熟練度排序，只取前5）
+  // 擅長英雄：熟練度前五（依有效熟練度排序，只取前5）——訓練不用選英雄了，
+  // 但保留這個面板讓玩家看得到底層練了什麼
   const owned = Object.keys(character.champions)
     .map((id) => ({ id, eff: effectiveProficiency(character, id, myPos) }))
     .sort((a, b) => b.eff - a.eff)
@@ -377,7 +364,7 @@ function renderChampionPanel() {
             <span class="stat-value mono">${Math.round(eff)}</span>
           </div>`;
       }).join("")
-    : `<div class="empty-hint">尚未練習任何英雄，選一隻開始吧。</div>`;
+    : `<div class="empty-hint">尚未練習任何英雄，練練看加強項目吧。</div>`;
 }
 
 function renderSummary() {
@@ -467,10 +454,11 @@ function retirementReasonText(c) {
 // 訓練類log合併：同一賽段內多次點擊訓練按鈕，不要每次都各自一行洗版，
 // 累積到緩衝區，等賽段推進時才合併成一行輸出
 function bufferTraining(kind, detail) {
-  const buf = character.flags.__trainingBuffer ?? (character.flags.__trainingBuffer = { core: {}, champBonusHit: false, fitnessClicks: 0, relaxClicks: 0 });
+  const buf = character.flags.__trainingBuffer ?? (character.flags.__trainingBuffer = { core: {}, champBonusHit: false, tierChampCount: 0, fitnessClicks: 0, relaxClicks: 0 });
   if (kind === "core") {
     buf.core[detail.stat] = (buf.core[detail.stat] ?? 0) + detail.gain;
     if (detail.champBonus) buf.champBonusHit = true;
+    buf.tierChampCount += detail.tierCount ?? 0;
   } else if (kind === "fitness") {
     buf.fitnessClicks++;
   } else if (kind === "relax") {
@@ -490,9 +478,36 @@ function flushTrainingLog() {
   if (buf.relaxClicks > 0) parts.push(`紓壓${buf.relaxClicks}次`);
   if (parts.length) {
     const bonusNote = buf.champBonusHit ? "，練習時順便帶動了部分英雄的手感" : "";
-    pushLog(parts.join("，") + bonusNote + "。");
+    const tierNote = buf.tierChampCount > 0 ? `，同時帶動了${buf.tierChampCount}人次的英雄熟練度` : "";
+    pushLog(parts.join("，") + bonusNote + tierNote + "。");
   }
   delete character.flags.__trainingBuffer;
+}
+
+// 三個加強項目按鈕現在同時帶動不同熟練度區間的英雄：
+// 個人操作→熟練度最高的幾隻（練你的招牌）；教練覆盤→熟練度中段的幾隻（補強半生不熟的）；
+// 研究版本情報→當前版本、你這個位置的版本英雄（追版本）
+function applyTierChampionTraining(stat, points = 1) {
+  const myPos = character.meta.position;
+  const owned = Object.keys(character.champions)
+    .map((id) => ({ id, eff: effectiveProficiency(character, id, myPos) }))
+    .sort((a, b) => b.eff - a.eff);
+
+  let targets = [];
+  if (stat === "反應") {
+    targets = owned.slice(0, 3).map((o) => o.id);
+  } else if (stat === "意識") {
+    targets = owned.slice(3, 6).map((o) => o.id);
+  } else if (stat === "版本適應力") {
+    const metaIds = character.seasonRecord.metaChampions ?? [];
+    targets = metaIds.filter((id) => {
+      const c = getChampion(id);
+      return c && (c.primary === myPos || c.secondary.includes(myPos));
+    });
+  }
+
+  targets.forEach((id) => trainChampion(character, id, points, character.meta.currentStageIndex));
+  return targets.length;
 }
 
 function advance() {
@@ -538,10 +553,9 @@ function advance() {
     pushLog(`例行賽戰績 ${teamWins}勝${teamLosses}敗${streakNote}。${rosterNote}`);
 
     const honors = evaluateStageHonors(character, stageMvpCount, wins + losses, wins, losses, totalGames);
-    if (honors.regularSeasonMVP) { character.fame = clamp(character.fame + 5, 0, 100); pushLog(`🏆 榮獲本賽段常規賽MVP！`); }
-    else if (honors.bestXI) { character.fame = clamp(character.fame + 3, 0, 100); pushLog(`⭐ 入選本賽段最佳陣容。`); }
+    if (honors.regularSeasonMVP) { character.fame = clamp(character.fame + 5, 0, 100); character.trainingPoints += 5; pushLog(`🏆 榮獲本賽段常規賽MVP！`); }
+    else if (honors.bestXI) { character.fame = clamp(character.fame + 3, 0, 100); character.trainingPoints += 3; pushLog(`⭐ 入選本賽段最佳陣容。`); }
 
-    maybeTriggerEvent();
     checkMilestones(character, log);
     const injury = rollInjuryChance(character, runtimeRng);
     if (injury) pushLog(`不幸受傷：${injury.name}。`);
@@ -556,6 +570,7 @@ function advance() {
       const rec = character.seasonRecord[stageKey];
       character.seasonRecord[stageKey].playoffResult = "未晉級";
       pushLog(`隊伍例行賽戰績 ${rec.teamWins}勝${rec.teamLosses}敗，無緣季後賽。`);
+      maybeTriggerEvent(); // 沒晉級也要有事件機會，不然戰績差的賽段完全沒內容，跟晉級的待遇差太多
       finishAdvance();
       return;
     }
@@ -570,8 +585,8 @@ function advance() {
           character.dynamic["心態"] = clamp(character.dynamic["心態"] - 10, 0, 100);
           pushLog(`打完國際賽後有點鬆懈，狀態出現下滑。`);
         }
-        // 國際賽不管有沒有奪冠，都給一次事件觸發機會——賽事限定事件(例如世界賽期間女友約會)
-        // 才有機會出現，不像國內賽區只有奪冠才觸發事件
+        // 事件觸發點集中在「季後賽/國際賽後」跟「長休賽期」，不再每個例行賽/短休賽期都觸發——
+        // 次數變少，但保留在生涯重要節點上，賽事限定事件(例如世界賽期間女友約會)也還是吃得到
         if (result === "冠軍") character.flags["剛奪冠"] = true;
         maybeTriggerEvent();
         delete character.flags["剛奪冠"];
@@ -579,17 +594,15 @@ function advance() {
         character.seasonRecord[stageKey].playoffResult = result;
         if (result === "冠軍" || result === "亞軍") character.team.favor = clamp(character.team.favor + 8, 0, 100);
         pushLog(`季後賽結果：${result}。`);
-        if (result === "冠軍") {
-          character.flags["剛奪冠"] = true;
-          maybeTriggerEvent();
-          delete character.flags["剛奪冠"];
-        }
+        // 國內季後賽不管有沒有奪冠，都給一次事件觸發機會（原本只有奪冠才觸發，現在事件次數變少，季後賽後本身就是重要節點）
+        if (result === "冠軍") character.flags["剛奪冠"] = true;
+        maybeTriggerEvent();
+        delete character.flags["剛奪冠"];
       }
       finishAdvance();
     });
     return; // 互動流程會非同步跑完才呼叫finishAdvance，這裡先中斷
   } else if (stageType === "offseason_short") {
-    maybeTriggerEvent();
     tickInjuries(character, runtimeRng);
     finishAdvance();
   } else if (stageType === "offseason_long") {
@@ -603,9 +616,11 @@ function advance() {
     if (!checkRetirement()) {
       character.team.contractYears -= 1;
       if (character.team.contractYears <= 0) {
-        // 合約到期優先權最高，一定要處理——之前是年終一般事件先跑，把畫面卡片佔住，
-        // 導致合約續約永遠被跳過(而且每年都會再被卡一次，等於這個角色永遠續不了約)
-        handleContractRenewal();
+        // 合約到期：等玩家真的選完續約/自由市場才能繼續推進，不能像之前一樣搶跑
+        // (finishAdvance如果搶先跑，賽段/年份會在玩家還沒點任何按鈕前就先推進，
+        //  合約年限卻還停在舊的到期狀態，兩邊對不上，就是你看到的年份落差問題)
+        handleContractRenewal(finishAdvance);
+        return;
       } else {
         maybeTriggerEvent();
         if (!el("event-inline").classList.contains("open")) {
@@ -713,6 +728,7 @@ function runInteractivePlayoff(isInternational, onComplete) {
         const fmvpBonus = isInternational && character.meta.currentStageName === "電競世界盃EWC" && gotFmvp ? 30 : 0;
         character.careerCounters.prizeMoney += fmvpBonus;
         character.fame = clamp(character.fame + (isInternational ? 15 : 8), 0, 100); // 奪冠帶來的知名度，國際賽份量更重
+        character.trainingPoints += isInternational ? 10 : 5;
         pushLog(`🏆 拿下冠軍！${gotFmvp ? "並獲選FMVP！" : ""}獲得獎金 ${(prize + fmvpBonus).toLocaleString()}萬。`);
         onComplete("冠軍");
       } else {
@@ -721,6 +737,7 @@ function runInteractivePlayoff(isInternational, onComplete) {
         const prize = computePrizeMoney(character, isInternational, character.meta.currentStageName, "亞軍");
         character.careerCounters.prizeMoney += prize;
         character.fame = clamp(character.fame + (isInternational ? 8 : 4), 0, 100);
+        character.trainingPoints += isInternational ? 6 : 3;
         pushLog(`惜敗，獲得亞軍，獎金 ${prize.toLocaleString()}萬。`);
         onComplete("亞軍");
       }
@@ -781,12 +798,12 @@ function applyTrade() {
 }
 
 // ---------------- 合約續約 ----------------
-function handleContractRenewal() {
+function handleContractRenewal(onDone) {
   const willRenew = evaluateContractRenewal(character);
-  showContractPrompt(willRenew);
+  showContractPrompt(willRenew, onDone);
 }
 
-function showContractPrompt(teamWantsRenew) {
+function showContractPrompt(teamWantsRenew, onDone) {
   el("event-title").textContent = "合約到期";
   el("dice-area").innerHTML = "";
   el("dice-area").classList.remove("show");
@@ -813,14 +830,15 @@ function showContractPrompt(teamWantsRenew) {
         pushLog(`與 ${character.team.name} 完成續約，簽下${renewContract.years}年新合約，年薪 ${renewContract.annualSalary.toLocaleString()}萬。`);
         renderDashboard();
         saveGame();
+        onDone(); // 玩家真的選完了，這時候才能繼續推進賽段
       } else {
-        showFreeAgencyPrompt();
+        showFreeAgencyPrompt(onDone);
       }
     }, { once: true })
   );
 }
 
-function showFreeAgencyPrompt() {
+function showFreeAgencyPrompt(onDone) {
   const rows = evaluateInvitations(character, runtimeRng, true).filter((r) => r.invited && r.team.name !== character.team.name);
   if (rows.length === 0) {
     // 理論上 evaluateInvitations 保底3隊，這裡防呆一下避免篩掉自己隊伍後剛好變0隊
@@ -858,6 +876,7 @@ function showFreeAgencyPrompt() {
       closeEventCard();
       renderDashboard();
       saveGame();
+      onDone(); // 玩家真的選完隊伍了，這時候才能繼續推進賽段
     }, { once: true })
   );
 }
@@ -1059,15 +1078,7 @@ el("btn-confirm-roll").addEventListener("click", () => {
   renderInvitations();
 });
 el("btn-advance").addEventListener("click", advance);
-el("btn-train").addEventListener("click", () => {
-  if (character.trainingPoints < 1) return;
-  const championId = el("champion-select").value;
-  if (!championId) return;
-  trainChampion(character, championId, 1, character.meta.currentStageIndex);
-  character.trainingPoints -= 1;
-  renderChampionPanel();
-  saveGame();
-});
+
 el("btn-fitness").addEventListener("click", () => {
   if (character.trainingPoints < 1) return;
   character.trainingPoints -= 1;
@@ -1090,7 +1101,9 @@ document.querySelectorAll(".btn-core-train").forEach((b) =>
     const stat = b.dataset.stat;
     character.trainingPoints -= 1;
     const { gain, champBonus } = trainCoreStat(character, stat, character.meta.currentStageIndex, runtimeRng);
-    bufferTraining("core", { stat, gain, champBonus });
+    const tierCount = applyTierChampionTraining(stat, 1);
+    bufferTraining("core", { stat, gain, champBonus, tierCount });
+    renderChampionPanel();
     renderDashboard();
     saveGame();
   })
