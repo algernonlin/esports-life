@@ -599,15 +599,21 @@ function advance() {
     const yearHonors = evaluateYearEndHonors(character);
     if (yearHonors.yearEndMVP) pushLog(`🏆 榮獲年度常規賽MVP！`);
     else if (yearHonors.yearEndBestPosition) pushLog(`⭐ 入選年度賽區最佳${character.meta.position}。`);
-    maybeTriggerEvent();
+
     if (!checkRetirement()) {
       character.team.contractYears -= 1;
-      const modalOpen = () => el("event-inline").classList.contains("open");
-      if (character.team.contractYears <= 0 && !modalOpen()) {
+      if (character.team.contractYears <= 0) {
+        // 合約到期優先權最高，一定要處理——之前是年終一般事件先跑，把畫面卡片佔住，
+        // 導致合約續約永遠被跳過(而且每年都會再被卡一次，等於這個角色永遠續不了約)
         handleContractRenewal();
-      } else if (!modalOpen()) {
-        maybeOfferRetirement();
+      } else {
+        maybeTriggerEvent();
+        if (!el("event-inline").classList.contains("open")) {
+          maybeOfferRetirement();
+        }
       }
+    } else {
+      maybeTriggerEvent();
     }
     finishAdvance();
   } else {
