@@ -658,7 +658,7 @@ function runInteractivePlayoff(isInternational, onComplete) {
 
     function playNextGame() {
       const isDecidingGame = losses === 2; // 再輸一場就淘汰(2:2/1:2/0:2都算)，不是只有2:2平手才算絕境
-      const showDice = isFinal || isDecidingGame;
+      const showDice = isDecidingGame; // 冠軍賽跟四強賽用同一套邏輯，只有絕境(再輸一場就淘汰)才骰，不是每場都骰
       const seriesGameIndex = wins + losses;
 
       const matchContext = { isMajorEvent: true, isInternational, isDecidingGame, seriesGameIndex };
@@ -841,47 +841,111 @@ function showContractPrompt(teamWantsRenew, onDone) {
   );
 }
 
+// 自由市場改成分層選單：先選本賽區/外賽區，本賽區直接列（原隊+2隊），外賽區先選賽區再列3隊
 function showFreeAgencyPrompt(onDone) {
-  const rows = evaluateInvitations(character, runtimeRng, true).filter((r) => r.invited && r.team.name !== character.team.name);
-  if (rows.length === 0) {
-    // 理論上 evaluateInvitations 保底3隊，這裡防呆一下避免篩掉自己隊伍後剛好變0隊
-    const fallback = evaluateInvitations(character, runtimeRng, true).filter((r) => r.team.name !== character.team.name)[0];
-    rows.push(fallback);
+  const allRows = evaluateInvitations(character, runtimeRng, true).filter((r) => r.invited && r.team.name !== character.team.name);
+  const byRegion = {};
+  allRows.forEach((r) => {
+    const reg = r.team.region;
+    (byRegion[reg] ??= []).push(r);
+  });
+  Object.keys(byRegion).forEach((reg) => {
+    byRegion[reg].sort((a, b) => b.prob - a.prob);
+  });
+
+  const myRegion = character.meta.region;
+  const otherRegions = REGIONS.filter((r) => r !== myRegion);
+
+  function renderChoices(title, text, buttonsHtml, onClickMap) {
+    el("event-title").textContent = title;
+    el("event-text").textContent = text;
+    el("dice-area").innerHTML = "";
+    el("dice-area").classList.remove("show");
+    el("event-choices").classList.remove("hidden");
+    el("event-choices").innerHTML = buttonsHtml;
+    openEventCard();
+    el("event-choices").querySelectorAll("button").forEach((b) =>
+      b.addEventListener("click", () => onClickMap(b), { once: true })
+    );
   }
-  const offers = rows.map((r) => ({ ...r, contract: previewContract(character, r.team, runtimeRng) }));
 
-  el("event-title").textContent = "自由市場";
-  el("event-text").textContent = "以下隊伍向你招手（不限賽區），選一支加入：";
-  el("dice-area").innerHTML = "";
-  el("dice-area").classList.remove("show");
-  el("event-choices").classList.remove("hidden");
-  el("event-choices").innerHTML = offers.map((r) =>
-    `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${r.team.region}・${ROSTER_LABEL[r.contract.predictedRoster]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬）</button>`
-  ).join("");
-  openEventCard();
+  function showStep1() {
+    renderChoices(
+      "自由市場",
+      "合約到期，你想留在本賽區，還是去外賽區闖闖看？",
+      `<button class="btn-choice" data-act="domestic">留在本賽區（${myRegion}）</button>
+       <button class="btn-choice" data-act="abroad">前進外賽區</button>`,
+      (b) => (b.dataset.act === "domestic" ? showDomesticStep() : showAbroadRegionStep())
+    );
+  }
 
-  el("event-choices").querySelectorAll("button").forEach((b) =>
-    b.addEventListener("click", () => {
-      const row = offers.find((r) => r.team.name === b.dataset.team);
-      const t = row.team;
-      const oldTeam = character.team.name;
-      const oldRegion = character.meta.region;
-      character.team = {
-        ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength,
-        reputation: t.reputation, chemistry: 50, favor: 50, contractYears: row.contract.years,
-      };
-      character.team.contractSalary = row.contract.annualSalary;
-      character.rosterStatus = row.contract.predictedRoster;
-      character.meta.teamName = t.name;
-      character.meta.region = t.region;
-      const regionNote = t.region !== oldRegion ? `，跨賽區轉戰 ${t.region}` : "";
-      pushLog(`合約到期後在自由市場，從 ${oldTeam} 轉會加入 ${t.name}${regionNote}，簽下${row.contract.years}年約，總價${row.contract.totalValue.toLocaleString()}萬。`);
-      closeEventCard();
-      renderDashboard();
-      saveGame();
-      onDone(); // 玩家真的選完隊伍了，這時候才能繼續推進賽段
-    }, { once: true })
-  );
+  function showDomesticStep() {
+    // 原隊(留隊) + 本賽區最多2隊有意向的隊伍，共3個選項
+    const domesticOffers = (byRegion[myRegion] ?? []).slice(0, 2).map((r) => ({ ...r, contract: previewContract(character, r.team, runtimeRng) }));
+    const stayContract = previewContract(character, character.team, runtimeRng); // 留隊：用原隊強度重新議價一次
+
+    const buttons = [
+      `<button class="btn-choice" data-team="__stay__">留在 ${character.team.name}（${ROSTER_LABEL[stayContract.predictedRoster]}・${stayContract.years}年約・總價${stayContract.totalValue.toLocaleString()}萬）</button>`,
+      ...domesticOffers.map((r) => `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${ROSTER_LABEL[r.contract.predictedRoster]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬）</button>`),
+    ].join("");
+
+    renderChoices(`本賽區（${myRegion}）`, "選一支隊伍加入，或留在原隊：", buttons, (b) => {
+      if (b.dataset.team === "__stay__") {
+        finalizeStay(stayContract);
+      } else {
+        finalizeSign(domesticOffers.find((r) => r.team.name === b.dataset.team));
+      }
+    });
+  }
+
+  function showAbroadRegionStep() {
+    const buttons = otherRegions.map((r) => `<button class="btn-choice" data-region="${r}">${r}</button>`).join("");
+    renderChoices("選擇外賽區", "想去哪個賽區發展？", buttons, (b) => showAbroadTeamStep(b.dataset.region));
+  }
+
+  function showAbroadTeamStep(region) {
+    const teams = (byRegion[region] ?? []).slice(0, 3).map((r) => ({ ...r, contract: previewContract(character, r.team, runtimeRng) }));
+    const buttons = teams.length
+      ? teams.map((r) => `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${ROSTER_LABEL[r.contract.predictedRoster]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬）</button>`).join("")
+      : `<div class="empty-hint">這個賽區目前沒有隊伍向你招手。</div><button class="btn-choice" data-act="back">回上一步</button>`;
+    renderChoices(`${region} 隊伍選擇`, "選一支隊伍加入：", buttons, (b) => {
+      if (b.dataset.act === "back") { showAbroadRegionStep(); return; }
+      finalizeSign(teams.find((r) => r.team.name === b.dataset.team));
+    });
+  }
+
+  function finalizeStay(contract) {
+    character.team.contractYears = contract.years;
+    character.team.contractSalary = contract.annualSalary;
+    character.rosterStatus = contract.predictedRoster;
+    pushLog(`合約到期，跟 ${character.team.name} 重新議價續留，簽下${contract.years}年約，總價${contract.totalValue.toLocaleString()}萬。`);
+    closeEventCard();
+    renderDashboard();
+    saveGame();
+    onDone();
+  }
+
+  function finalizeSign(row) {
+    const t = row.team;
+    const oldTeam = character.team.name;
+    const oldRegion = character.meta.region;
+    character.team = {
+      ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength,
+      reputation: t.reputation, chemistry: 50, favor: 50, contractYears: row.contract.years,
+    };
+    character.team.contractSalary = row.contract.annualSalary;
+    character.rosterStatus = row.contract.predictedRoster;
+    character.meta.teamName = t.name;
+    character.meta.region = t.region;
+    const regionNote = t.region !== oldRegion ? `，跨賽區轉戰 ${t.region}` : "";
+    pushLog(`合約到期後在自由市場，從 ${oldTeam} 轉會加入 ${t.name}${regionNote}，簽下${row.contract.years}年約，總價${row.contract.totalValue.toLocaleString()}萬。`);
+    closeEventCard();
+    renderDashboard();
+    saveGame();
+    onDone();
+  }
+
+  showStep1();
 }
 
 function applyPositionChange() {
@@ -1086,6 +1150,8 @@ el("btn-fitness").addEventListener("click", () => {
   if (character.trainingPoints < 1) return;
   character.trainingPoints -= 1;
   character.fitnessBoost = (character.fitnessBoost ?? 0) + 0.1;
+  const staminaGain = Math.round(8 + runtimeRng() * 7); // 8~15隨機
+  character.dynamic["體能"] = clamp(character.dynamic["體能"] + staminaGain, 0, 100);
   bufferTraining("fitness");
   renderDashboard();
   saveGame();

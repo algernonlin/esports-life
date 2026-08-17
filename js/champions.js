@@ -6,7 +6,7 @@
 // 少數翻譯可能跟遊戲內顯示有出入，你發現錯的直接改 CHAMPIONS 陣列裡的 name 即可。
 // 之後 Riot 出新英雄，照這個格式在 RAW 陣列裡加一行就好，不用動其他邏輯。
 // ============================================================
-import { clamp } from "./rng.js";
+import { clamp, runtimeRng } from "./rng.js";
 
 // 位置 → 版本模板 flavor 的預設對應（沿用你之前定案的四種版本模板）
 const POSITION_FLAVOR = {
@@ -280,7 +280,8 @@ export function trainChampion(character, championId, points, currentStageIndex) 
 
   for (let i = 0; i < points; i++) {
     const diminish = 1 - entry.proficiency / 120; // 越接近滿熟練，單點效益越低
-    const gain = clamp(6 * efficiency * Math.max(diminish, 0.15), 0.5, 8);
+    const randomFactor = 0.75 + runtimeRng() * 0.5; // ±25%隨機浮動，不再是每次都固定同一個數字
+    const gain = clamp(3 * efficiency * Math.max(diminish, 0.15) * randomFactor, 0.3, 4); // 基準值從6降到3，整體成長速度減半
     entry.proficiency = clamp(entry.proficiency + gain, 0, 100);
   }
   entry.lastPracticedStage = currentStageIndex;

@@ -274,7 +274,7 @@ body {
   padding: 12px 14px;
   background: var(--bg-inset);
 }
-.invite-row.invited { border-color: var(--accent-dim); }
+.invite-row.invited { border-color: var(--accent); }
 .invite-row.declined { opacity: 0.5; }
 .invite-team { display: flex; flex-direction: column; gap: 2px; }
 .invite-name { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
@@ -562,7 +562,7 @@ body {
 .event-inline {
   display: none;
   background: var(--bg-panel);
-  border: 1px solid var(--accent-dim);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-md);
   padding: 20px 22px;
   margin-bottom: 12px;
