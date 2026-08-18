@@ -48,6 +48,12 @@ export const MILESTONES = [
   { id: "appearances_1000", track: "appearances",  threshold: 1000, title: "傳奇化石", effects: [{ type: "fame_delta", value: 5 }] },
 ];
 
+// 追蹤項目對照表：log顯示達成條件用（例如「100次出賽」），track改了名字要記得同步這裡
+const TRACK_LABELS = {
+  kills: "擊殺", assists: "助攻", deaths: "死亡", wins: "勝場",
+  mvps: "MVP", appearances: "出賽",
+};
+
 export function checkMilestones(character, log) {
   const unlocked = character.flags.__milestones ?? {};
   for (const m of MILESTONES) {
@@ -56,7 +62,8 @@ export function checkMilestones(character, log) {
       unlocked[m.id] = true;
       applyEffects(character, m.effects, log);
       const summary = summarizeEffects(m.effects, character);
-      log.push({ stage: character.meta.currentStageName, year: character.meta.careerYear, text: `達成成就：${m.title}${summary ? `　[${summary}]` : ""}` });
+      const conditionLabel = TRACK_LABELS[m.track] ?? m.track;
+      log.push({ stage: character.meta.currentStageName, year: character.meta.careerYear, text: `達成成就：${m.title}（${m.threshold}次${conditionLabel}）${summary ? `　[${summary}]` : ""}` });
     }
   }
   character.flags.__milestones = unlocked;

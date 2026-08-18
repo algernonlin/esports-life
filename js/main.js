@@ -587,7 +587,7 @@ function advance() {
     rollMetaVersion(character, runtimeRng);
     const stageKey = currentStageRecordKey();
     const { wins, losses, teamWins, teamLosses, longestWinStreak, longestLossStreak, totalGames, stageMvpCount } = simulateRegularStage(character, runtimeRng);
-    // 隊伍整體戰績跟你個人出賽戰績分開存：季後賽晉級看隊伍的，生涯數據看你個人的
+    // 隊伍整體戰績跟你個人出賽戰績分開存：季後賽晉級看隊伍的，生涯數據看個人的
     character.seasonRecord[stageKey].wins += wins;
     character.seasonRecord[stageKey].losses += losses;
     character.seasonRecord[stageKey].teamWins = (character.seasonRecord[stageKey].teamWins ?? 0) + teamWins;
@@ -1297,10 +1297,21 @@ function showContinuePrompt(saved) {
   }, { once: true });
 }
 
-const savedGame = loadSavedGame();
-if (savedGame && savedGame.character && !savedGame.character.retired) {
-  showContinuePrompt(savedGame);
+function initGame() {
+  const savedGame = loadSavedGame();
+  if (savedGame && savedGame.character && !savedGame.character.retired) {
+    showContinuePrompt(savedGame);
+  } else {
+    if (savedGame) clearSave(); // 上次已經退役結束的存檔，沒有繼續的意義，順便清掉
+    renderSetup();
+  }
+}
+
+// 保險起見再包一層：type="module"照規範會等DOM解析完才執行，
+// 但手機瀏覽器(尤其Safari分頁還原/快取機制)偶爾時機不穩定，
+// 加這層判斷確保DOM真的準備好才初始化，避免「偶爾load不出來、要重整才行」的狀況
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initGame);
 } else {
-  if (savedGame) clearSave(); // 上次已經退役結束的存檔，沒有繼續的意義，順便清掉
-  renderSetup();
+  initGame();
 }

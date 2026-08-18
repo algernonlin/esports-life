@@ -7,7 +7,7 @@ import { clamp, randomRange, pickWeighted } from "./rng.js";
 import { decayChampionProficiency, rollMetaChampions, trainChampion } from "./champions.js";
 
 // -------------------------------------------------------------
-// 國際賽資格判定
+// 國際賽資格判定（示範用簡化規則，可依你研究的真實名額調整）
 // -------------------------------------------------------------
 export function checkQualification(character, conditionKey) {
   const sr = character.seasonRecord;
@@ -72,7 +72,7 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
 
     if (sitOut) {
       results.push({ played: false });
-      // 用隊伍平均戰力(不含你的個人加成)簡化算勝負，
+      // 你沒上場，隊伍還是要打這場——用隊伍平均戰力(不含你的個人加成)簡化算勝負，
       // 這樣「隊伍整體戰績」才會是真的隊伍戰績，不會因為你替補沒上場就漏掉這場比賽
       const myAvg = Object.values(character.team.positionStrength ?? {}).reduce((a, b) => a + b, 0) / 5 || character.team.baseStrength;
       const oppAvg = Object.values(opponentTeam.positionStrength ?? {}).reduce((a, b) => a + b, 0) / 5 || opponentTeam.baseStrength;
@@ -185,8 +185,9 @@ export function buildInternationalOpponentPool(character) {
   const pool = [];
   for (const region of Object.keys(TEAMS)) {
     if (region === character.meta.region) continue; // 避免國際賽又打回自己賽區的隊伍
-    const top3 = [...TEAMS[region]].sort((a, b) => b.baseStrength - a.baseStrength).slice(0, 3);
-    pool.push(...top3);
+    const contenderCount = (region === "LPL" || region === "LCK") ? 5 : 3; // LPL/LCK底蘊深，多納入2隊進候選池
+    const top = [...TEAMS[region]].sort((a, b) => b.baseStrength - a.baseStrength).slice(0, contenderCount);
+    pool.push(...top);
   }
   return pool;
 }
@@ -443,13 +444,16 @@ export function generateWorldsNewsFlash(runtimeRng, eventName, excludeTeamName) 
   // (跟之前修過的「四強賽對手池」是同一種問題，這裡補上同樣的限制)
   const pool = [];
   for (const region of Object.keys(TEAMS)) {
-    const top3 = [...TEAMS[region]].filter((t) => t.name !== excludeTeamName).sort((a, b) => b.baseStrength - a.baseStrength).slice(0, 3);
-    pool.push(...top3);
+    const contenderCount = (region === "LPL" || region === "LCK") ? 5 : 3; // LPL/LCK底蘊深，多納入2隊進候選池
+    const top = [...TEAMS[region]].filter((t) => t.name !== excludeTeamName).sort((a, b) => b.baseStrength - a.baseStrength).slice(0, contenderCount);
+    pool.push(...top);
   }
   if (pool.length < 2) return null;
 
-  const finalistA = pickWeighted(runtimeRng, pool.map((t) => ({ ...t, weight: t.baseStrength })));
-  const finalistB = pickWeighted(runtimeRng, pool.filter((t) => t.name !== finalistA.name).map((t) => ({ ...t, weight: t.baseStrength })));
+  // 快訊專用的權重放大：各賽區前3強實力本來就很接近(通常差距<15分)，直接用baseStrength當權重
+  // 感受不太出來強弱差異，這裡用10次方把差距拉開，只影響這個函式，不動全站共用的pickWeighted本身
+  const finalistA = pickWeighted(runtimeRng, pool.map((t) => ({ ...t, weight: Math.pow(t.baseStrength, 10) })));
+  const finalistB = pickWeighted(runtimeRng, pool.filter((t) => t.name !== finalistA.name).map((t) => ({ ...t, weight: Math.pow(t.baseStrength, 10) })));
 
   // 依雙方baseStrength算個粗略勝率，模擬BO5比數（3:0~3:2都可能）
   const diff = finalistA.baseStrength - finalistB.baseStrength;
