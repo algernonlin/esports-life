@@ -180,6 +180,9 @@ function renderEventLog() {
     ).join("");
     return `<div class="log-year-divider"><span class="mono">S${season}</span>${g.year}年・${age}歲</div>${rows}`;
   }).join("");
+
+  const logEl = el("event-log");
+  logEl.scrollTop = logEl.scrollHeight; // 新的紀錄在下面，渲染完自動捲到底部，不用手動往下拉
 }
 
 function renderHonors() {
@@ -514,8 +517,10 @@ function applyTierChampionTraining(stat, points = 1) {
 
   let targets = [];
   if (stat === "反應") {
-    // 個人操作：熟練度最高2隻(練你的招牌) + 隨機1隻該路英雄
-    const top2 = withEff.slice(0, 2).map((o) => o.id);
+    // 個人操作：熟練度最高2隻(練你的招牌)，但排除已經滿熟練度(100)的——
+    // 練滿的英雄再選中也不會再漲，等於浪費訓練機會 + 隨機1隻該路英雄
+    const notMaxed = withEff.filter((o) => o.eff < 100);
+    const top2 = notMaxed.slice(0, 2).map((o) => o.id);
     targets = [...new Set([...top2, randomEligibleId()])];
   } else if (stat === "意識") {
     // 教練覆盤：熟練度最低2隻(但排除完全沒練過的0分英雄，要真的是「有基礎但不夠熟」才符合覆盤的語意)
@@ -1200,6 +1205,8 @@ document.querySelectorAll(".btn-core-train").forEach((b) =>
     if (!character || character.trainingPoints < 1) return;
     const stat = b.dataset.stat;
     character.trainingPoints -= 1;
+    const staminaCost = Math.round(3 + runtimeRng() * 4); // 訓練會消耗體能，3~7隨機
+    character.dynamic["體能"] = clamp(character.dynamic["體能"] - staminaCost, 0, 100);
     const { gain, champBonus } = trainCoreStat(character, stat, character.meta.currentStageIndex, runtimeRng);
     const { gains: tierGains } = applyTierChampionTraining(stat, 1);
     bufferTraining("core", { stat, gain, champBonus, champGains: tierGains });

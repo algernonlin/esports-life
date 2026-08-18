@@ -113,7 +113,7 @@ export const EVENTS = [
   {
     id: "event_lpl_scripted_player",
     category: "日常",
-    weight: 2,
+    weight: 3,
     cooldown: 10,
     conditions: [{ path: "meta.region", equals: "LPL" }],
     title: "遇到演員",
@@ -540,7 +540,7 @@ export const EVENTS = [
     id: "event_roster_rumor",
     category: "輿論",
     weight: 3,
-    cooldown: 21,
+    cooldown: 20,
     conditions: [{ fame_min: 20 }],
     title: "轉隊傳聞",
     text: "論壇上開始流傳你即將轉隊的傳聞，隊友看你的眼神都變得有點微妙。",
@@ -636,8 +636,8 @@ export const EVENTS = [
   {
     id: "event_fan_protest",
     category: "輿論",
-    weight: 2,
-    cooldown: 7,
+    weight: 4,
+    cooldown: 10,
     conditions: [{ path: "team.favor", max: 25 }, { fame_min: 20 }],
     title: "戰隊大樓前的抗議",
     text: "連續輸球後，一批粉絲開著卡車到戰隊大樓樓下抗議，要求管理層做出改變。",
@@ -654,10 +654,42 @@ export const EVENTS = [
   },
 
   // ==================== 感情 ====================
+  // 拿過世界賽FMVP + 沒女友 + 知名度夠高，才會觸發這個廣告邀約
+  {
+    id: "event_idol_ad_offer",
+    category: "感情",
+    weight: 3,
+    cooldown: 999,
+    conditions: [
+      { path: "careerCounters.fmvps", min: 1 },
+      { flag_not: "有女友" },
+      { fame_min: 60 },
+    ],
+    title: "廣告邀約",
+    text: "戰隊收到一份合作邀約，某知名品牌想找你跟當紅女團「星映」成員雅琳一起拍一支廣告，宣傳期間會有不少直接互動的橋段。",
+    choices: [
+      {
+        label: "保持專業距離，公事公辦",
+        outcomes: [{ effects: [{ type: "fame_delta", value: 10 }, { type: "stat_delta", stat: "溝通", value: 2 }] }],
+      },
+      {
+        label: "私下要了聯繫方式",
+        outcomes: [
+          { probability: 0.5, resultText: "後續聊得不錯，你們私下開始有聯繫。", effects: [
+            { type: "fame_delta", value: 10 }, { type: "dynamic_delta", stat: "心態", value: 8 },
+            { type: "flag_set", flag: "偷偷聯繫粉絲" },
+          ]},
+          { probability: 0.5, resultText: "對方只是客氣回應，沒有進一步發展，你自己也覺得有點尷尬。", effects: [
+            { type: "fame_delta", value: 10 }, { type: "dynamic_delta", stat: "心態", value: -4 },
+          ]},
+        ],
+      },
+    ],
+  },
   {
     id: "event_confession",
     category: "感情",
-    weight: 2,
+    weight: 3,
     cooldown: 999,
     conditions: [{ fame_min: 25 }, { flag_not: "有女友" }],
     title: "私訊表白",
@@ -752,7 +784,7 @@ export const EVENTS = [
   {
     id: "event_pregnancy_dilemma",
     category: "感情",
-    weight: 3,
+    weight: 4,
     cooldown: 20,
     conditions: [{ OR: [{ flag: "有秘密女友" }, { flag: "有女友" }, { flag_not: "出軌中" }, { flag_not: "外遇中" }] }, { flag_not: "已處理感情危機" }],
     title: "意外的消息",
@@ -779,7 +811,7 @@ export const EVENTS = [
   {
     id: "event_relationship_conflict",
     category: "感情",
-    weight: 2,
+    weight: 1,
     cooldown: 20,
     conditions: [{ OR: [{ flag: "有秘密女友" }, { flag: "有女友" }] }, { personality: "決斷風格", min: 40 }],
     title: "失控的爭執",
@@ -911,7 +943,7 @@ export const EVENTS = [
   {
     id: "event_baby_spirit_gate",
     category: "感情",
-    weight: 1,
+    weight: 3,
     cooldown: 999,
     conditions: [{ flag: "曾要求墮胎" }, { flag_not: "已渡化嬰靈" }],
     title: "嬰靈之門",
@@ -1110,7 +1142,7 @@ export const EVENTS = [
   {
     id: "event_relationship_leak",
     category: "彩蛋",
-    weight: 1,
+    weight: 2,
     cooldown: 999,
     conditions: [{ OR: [{ flag: "曾要求墮胎" }, { flag: "有秘密女友" }] }, { fame_min: 35 }],
     title: "私密對話外流",
@@ -1285,7 +1317,7 @@ export const EVENTS = [
     id: "event_slip_injury",
     category: "彩蛋",
     weight: 2,
-    cooldown: 50,
+    cooldown: 100,
     conditions: [],
     title: "意外的一跤",
     text: "你在浴室滑倒，重重摔了一下，腰部傳來一陣刺痛。",
