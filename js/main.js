@@ -778,9 +778,24 @@ function runInteractivePlayoff(isInternational, onComplete) {
   playSeries(false, (wonSemifinal) => {
     if (!wonSemifinal) { onComplete(isInternational ? "止步八強" : "止步四強"); return; }
     playSeries(true, (wonFinal) => {
+      // 國際賽要分開累計是哪個賽事的冠亞軍，不能只看籠統加總的internationalTitles，
+      // 不然大滿貫/三冠王這種要求「特定賽事」的成就沒辦法判斷
+      const specificCounterKey = (result) => {
+        const name = character.meta.currentStageName;
+        const suffix = result === "冠軍" ? "Titles" : "RunnerUps";
+        if (name === "先鋒賽") return "pioneer" + suffix;
+        if (name === "季中邀請賽") return "msi" + suffix;
+        if (name === "電競世界盃EWC") return "ewc" + suffix;
+        if (name.endsWith("世界大賽")) return "worlds" + suffix;
+        return null;
+      };
+
       if (wonFinal) {
-        if (isInternational) character.careerCounters.internationalTitles++;
-        else character.careerCounters.domesticTitles++;
+        if (isInternational) {
+          character.careerCounters.internationalTitles++;
+          const key = specificCounterKey("冠軍");
+          if (key) character.careerCounters[key]++;
+        } else character.careerCounters.domesticTitles++;
         const gotFmvp = rollFinalsMVP(character, runtimeRng);
         const prize = computePrizeMoney(character, isInternational, character.meta.currentStageName, "冠軍");
         character.careerCounters.prizeMoney += prize;
@@ -791,8 +806,11 @@ function runInteractivePlayoff(isInternational, onComplete) {
         pushLog(`🏆 拿下冠軍！${gotFmvp ? "並獲選FMVP！" : ""}獲得獎金 ${(prize + fmvpBonus).toLocaleString()}萬。`);
         onComplete("冠軍");
       } else {
-        if (isInternational) character.careerCounters.internationalRunnerUps++;
-        else character.careerCounters.domesticRunnerUps++;
+        if (isInternational) {
+          character.careerCounters.internationalRunnerUps++;
+          const key = specificCounterKey("亞軍");
+          if (key) character.careerCounters[key]++;
+        } else character.careerCounters.domesticRunnerUps++;
         const prize = computePrizeMoney(character, isInternational, character.meta.currentStageName, "亞軍");
         character.careerCounters.prizeMoney += prize;
         character.fame = clamp(character.fame + (isInternational ? 8 : 4), 0, 100);

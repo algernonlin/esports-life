@@ -274,12 +274,17 @@ export function createCharacter({ name, position, region, teamName }) {
       contractSalary: 0, // 簽約當下鎖定的年薪(萬)，換約才會重新算
     },
     careerCounters: {
-      kills: 0, assists: 0, deaths: 0, wins: 0, losses: 0, mvps: 0, worldsAppearances: 0,
+      kills: 0, assists: 0, deaths: 0, wins: 0, losses: 0, appearances: 0, mvps: 0, worldsAppearances: 0,
       // 收入拆三類：薪資（合約鎖定）、獎金（賽事名次，固定金額不因人而異）、其他收入（零散事件）
       salaryIncome: 0, prizeMoney: 0, otherIncome: 0,
       // 生涯榮譽
       domesticTitles: 0, domesticRunnerUps: 0,       // 賽區冠軍/亞軍（例行賽季後賽）
-      internationalTitles: 0, internationalRunnerUps: 0, // 國際賽冠軍/亞軍
+      internationalTitles: 0, internationalRunnerUps: 0, // 國際賽冠軍/亞軍(四個賽事加總)
+      // 大滿貫/大滿亞、三冠王/五冠王/十冠王要分開算，不能只看上面加總後的籠統數字
+      pioneerTitles: 0, pioneerRunnerUps: 0,       // 先鋒賽
+      msiTitles: 0, msiRunnerUps: 0,               // 季中邀請賽
+      ewcTitles: 0, ewcRunnerUps: 0,               // 電競世界盃EWC
+      worldsTitles: 0, worldsRunnerUps: 0,         // 世界大賽
       fmvps: 0,                                       // 決賽FMVP（只有奪冠才可能拿到）
       regularSeasonMVPs: 0,                            // 該賽段例行賽MVP（賽段級，累積次數）
       bestXI: 0,                                       // 該賽段最佳陣容入選次數

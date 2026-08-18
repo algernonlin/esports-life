@@ -83,6 +83,7 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
 
     const result = simulateMatch(character, opponentTeam, { isMajorEvent: false }, runtimeRng);
     results.push({ played: true, ...result, opponentName: opponent?.name ?? "未知隊伍" });
+    character.careerCounters.appearances++;
 
     if (result.win) {
       character.careerCounters.wins++;
@@ -121,6 +122,7 @@ export function applyGameResult(character, result) {
   character.careerCounters.deaths += result.deaths;
   character.careerCounters.assists += result.assists;
   if (result.win) character.careerCounters.wins++; else character.careerCounters.losses++;
+  character.careerCounters.appearances++;
   if (result.mvp) {
     character.careerCounters.mvps++;
     character.trainingPoints += 1;
