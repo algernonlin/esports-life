@@ -1,5 +1,7 @@
 /* ============================================================
    DESIGN TOKENS
+   概念：電競賽事轉播的「數據面板」美學 — 不是玻璃擬態，不是漸層卡片。
+   深石墨背景 + 廣播計分板金色強調 + 冷灰藍次色 + 窄體大寫展示字。
    ============================================================ */
 :root {
   --bg:            #0a0a0b;
@@ -22,7 +24,7 @@
   --radius-sm: 8px;
   --radius-md: 14px;
 
-  --accent-warm: #e8a33d; /* 第三色：暖金，用在稀有標籤*/
+  --accent-warm: #e8a33d; /* 第三色：暖金，用在稀有標籤/版本英雄這類「亮點」上，避免整體只有紅黑太單調 */
 
   --font-display: 'Barlow Condensed', 'Noto Sans TC', sans-serif;
   --font-body: 'Noto Sans TC', -apple-system, sans-serif;
@@ -42,7 +44,7 @@ body {
 
 .mono { font-family: var(--font-mono); }
 
-
+/* 細微掃描線紋理，呼應轉播畫面質感，極度低調 */
 .scanline {
   pointer-events: none;
   position: fixed; inset: 0;
@@ -549,7 +551,7 @@ body {
   padding: 4px 10px; border-radius: 20px;
 }
 
-/* ---------------- Event Inline  ---------------- */
+/* ---------------- Event Inline (取代原本的浮層彈窗，內嵌在推進按鈕上方，平常隱藏) ---------------- */
 .event-inline {
   display: none;
   background: var(--bg-panel);

@@ -7,7 +7,7 @@ import { clamp, randomRange, pickWeighted } from "./rng.js";
 import { decayChampionProficiency, rollMetaChampions, trainChampion } from "./champions.js";
 
 // -------------------------------------------------------------
-// 國際賽資格判定（示範用簡化規則，可依你研究的真實名額調整）
+// 國際賽資格判定
 // -------------------------------------------------------------
 export function checkQualification(character, conditionKey) {
   const sr = character.seasonRecord;
@@ -72,7 +72,7 @@ export function simulateRegularStage(character, runtimeRng, gamesCount = null) {
 
     if (sitOut) {
       results.push({ played: false });
-      // 你沒上場，隊伍還是要打這場——用隊伍平均戰力(不含你的個人加成)簡化算勝負，
+      // 用隊伍平均戰力(不含你的個人加成)簡化算勝負，
       // 這樣「隊伍整體戰績」才會是真的隊伍戰績，不會因為你替補沒上場就漏掉這場比賽
       const myAvg = Object.values(character.team.positionStrength ?? {}).reduce((a, b) => a + b, 0) / 5 || character.team.baseStrength;
       const oppAvg = Object.values(opponentTeam.positionStrength ?? {}).reduce((a, b) => a + b, 0) / 5 || opponentTeam.baseStrength;
@@ -438,7 +438,14 @@ const DOMESTIC_PRIZE_BASE = { champion: 30, runnerup: 12 };
 // 場外快訊：純敘事包裝，不代表真的模擬了其他49隊的完整賽程——
 // 加權隨機抽兩支隊伍(強隊機率高)打一場模擬決賽，純粹是給世界增添一點背景聲響
 export function generateWorldsNewsFlash(runtimeRng, eventName, excludeTeamName) {
-  const pool = ALL_TEAMS.filter((t) => t.name !== excludeTeamName);
+  // 候選池要限制在「每個賽區前3強」，不能從全部49隊隨便抽——
+  // 不然墊底隊伍(例如全聯盟排名39/49的隊伍)也有機會被抽中打進決賽，不合理
+  // (跟之前修過的「四強賽對手池」是同一種問題，這裡補上同樣的限制)
+  const pool = [];
+  for (const region of Object.keys(TEAMS)) {
+    const top3 = [...TEAMS[region]].filter((t) => t.name !== excludeTeamName).sort((a, b) => b.baseStrength - a.baseStrength).slice(0, 3);
+    pool.push(...top3);
+  }
   if (pool.length < 2) return null;
 
   const finalistA = pickWeighted(runtimeRng, pool.map((t) => ({ ...t, weight: t.baseStrength })));
