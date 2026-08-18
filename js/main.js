@@ -20,6 +20,7 @@ import {
   evaluateContractRenewal, trainCoreStat, paySalary, evaluateStageHonors, evaluateYearEndHonors,
   computeContractSalary, buildInternationalOpponentPool, applyGameResult, rollFinalsMVP,
   previewContract, computePrizeMoney, snapshotYearRecord, buildDomesticPlayoffOpponentPool,
+  generateWorldsNewsFlash,
 } from "./season.js";
 import { checkMilestones } from "./achievements.js";
 import { rollInjuryChance, tickInjuries } from "./injuries.js";
@@ -437,7 +438,6 @@ function generateTitle(c) {
   if (c.flags["偷偷聯繫粉絲"]) return "草粉";
   if (c.flags["洗澡狗"]) return "洗澡狗";
   if (c.flags["乳牛"]) return "乳牛";
-  if (c.flags["ntr"]) return "牛頭人大師";
   if (c.careerCounters.worldsAppearances >= 2) return "世界賽常客";
   if (c.careerCounters.kills >= 1000) return "生涯千殺傳奇";
   if (c.fame >= 85) return "話題王者";
@@ -615,15 +615,15 @@ function advance() {
       const rec = character.seasonRecord[stageKey];
       character.seasonRecord[stageKey].playoffResult = "未晉級";
       pushLog(`隊伍例行賽戰績 ${rec.teamWins}勝${rec.teamLosses}敗，無緣季後賽。`);
-      maybeTriggerEvent(); // 沒晉級也要有事件機會，不然戰績差的賽段完全沒內容，跟晉級的待遇差太多
-      finishAdvance();
+      // 事件卡片開著的時候不能讓賽段搶跑，要等玩家真的選完才能推進（跟合約續約同一個修法）
+      maybeTriggerEvent(finishAdvance);
       return;
     }
 
     runInteractivePlayoff(isInternational, (result) => {
       if (isInternational) {
         character.seasonRecord.qualifiedEvents.push({ name: character.meta.currentStageName, result });
-        character.careerCounters.worldsAppearances += character.meta.currentStageName === "S16世界大賽" ? 1 : 0;
+        character.careerCounters.worldsAppearances += character.meta.currentStageName.endsWith("世界大賽") ? 1 : 0;
         character.fame = clamp(character.fame + 10, 0, 100);
         pushLog(`${character.meta.currentStageName} 結果：${result}，知名度提升。`);
         if (character.talents.some((t) => t.id === "semifinal_enough")) {
@@ -633,7 +633,7 @@ function advance() {
         // 事件觸發點集中在「季後賽/國際賽後」跟「長休賽期」，不再每個例行賽/短休賽期都觸發——
         // 次數變少，但保留在生涯重要節點上，賽事限定事件(例如世界賽期間女友約會)也還是吃得到
         if (result === "冠軍") character.flags["剛奪冠"] = true;
-        maybeTriggerEvent();
+        maybeTriggerEvent(finishAdvance); // 事件卡片開著時不能讓賽段搶跑，等玩家真的選完才推進
         delete character.flags["剛奪冠"];
       } else {
         character.seasonRecord[stageKey].playoffResult = result;
@@ -641,10 +641,9 @@ function advance() {
         pushLog(`季後賽結果：${result}。`);
         // 國內季後賽不管有沒有奪冠，都給一次事件觸發機會（原本只有奪冠才觸發，現在事件次數變少，季後賽後本身就是重要節點）
         if (result === "冠軍") character.flags["剛奪冠"] = true;
-        maybeTriggerEvent();
+        maybeTriggerEvent(finishAdvance);
         delete character.flags["剛奪冠"];
       }
-      finishAdvance();
     });
     return; // 互動流程會非同步跑完才呼叫finishAdvance，這裡先中斷
   } else if (stageType === "offseason_short") {
@@ -667,15 +666,19 @@ function advance() {
         handleContractRenewal(finishAdvance);
         return;
       } else {
-        maybeTriggerEvent();
-        if (!el("event-inline").classList.contains("open")) {
-          maybeOfferRetirement();
-        }
+        // 事件卡片開著時不能讓finishAdvance搶跑，退休機率判定要等事件解決後才跑
+        maybeTriggerEvent(() => {
+          if (!el("event-inline").classList.contains("open")) {
+            maybeOfferRetirement();
+          }
+          finishAdvance();
+        });
+        return;
       }
     } else {
-      maybeTriggerEvent();
+      maybeTriggerEvent(finishAdvance);
+      return;
     }
-    finishAdvance();
   } else {
     finishAdvance();
   }
@@ -801,7 +804,12 @@ function finishAdvance() {
   character.rosterStatus = evaluateRosterStatus(character);
 
   if (!character.retired) {
-    advanceStage(character);
+    const { skippedInternationals } = advanceStage(character);
+    // 沒資格參加、被跳過的國際賽，用場外快訊給個交代——純敘事包裝，不代表真的模擬了完整賽程
+    (skippedInternationals ?? []).forEach((eventName) => {
+      const flash = generateWorldsNewsFlash(runtimeRng, eventName, character.team.name);
+      if (flash) pushLog(flash);
+    });
     renderDashboard();
   } else {
     renderSummary();
@@ -1074,15 +1082,15 @@ function showRetirementPrompt() {
   );
 }
 
-function maybeTriggerEvent() {
+function maybeTriggerEvent(onDone) {
   const event = pickEvent(character, runtimeRng);
-  if (!event) return;
+  if (!event) { onDone?.(); return; }
   markEventCooldown(character, event);
-  showEventModal(event);
+  showEventModal(event, onDone);
 }
 
 // ---------------- 事件彈窗 ----------------
-function showEventModal(event) {
+function showEventModal(event, onDone) {
   el("event-title").textContent = event.title;
   el("event-text").textContent = event.text;
   el("dice-area").innerHTML = "";
@@ -1097,11 +1105,11 @@ function showEventModal(event) {
       const { outcome, dice } = resolveChoiceOutcome(choice, runtimeRng);
 
       if (!dice) {
-        finishEvent(event, choice, outcome);
+        finishEvent(event, choice, outcome, undefined, onDone);
         return;
       }
       el("event-choices").classList.add("hidden");
-      runDiceAnimation(dice, () => finishEvent(event, choice, outcome, dice));
+      runDiceAnimation(dice, () => finishEvent(event, choice, outcome, dice, onDone));
     }, { once: true })
   );
 }
@@ -1160,7 +1168,7 @@ function runDiceAnimation(dice, onDone) {
   });
 }
 
-function finishEvent(event, choice, outcome, dice) {
+function finishEvent(event, choice, outcome, dice, onDone) {
   applyEffects(character, outcome.effects ?? [], log);
   const resultNote = outcome.resultText ? `　${outcome.resultText}` : "";
   const diceNote = dice ? `（骰${dice.d1}+${dice.d2}=${dice.sum}，${dice.passed ? "過關" : "失敗"}）` : "";
@@ -1170,6 +1178,7 @@ function finishEvent(event, choice, outcome, dice) {
   closeEventCard();
   renderDashboard();
   saveGame();
+  onDone?.(); // 玩家真的選完了，這時候才能繼續推進賽段（沒有事件的話onDone在maybeTriggerEvent就已經呼叫過了）
 }
 
 // ---------------- 畫面切換 ----------------

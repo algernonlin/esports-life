@@ -176,7 +176,7 @@ export const SEASON_FLOW = [
 
   { stage: "第三賽段例行賽", type: "regular" },
   { stage: "第三賽段季後賽", type: "playoff" },
-  { stage: "S16世界大賽",   type: "international", condition: "qualified_worlds" },
+  { stage: "世界大賽",   type: "international", condition: "qualified_worlds" },
 
   { stage: "長休賽期",      type: "offseason_long" },
 ];

@@ -123,7 +123,6 @@ export function applyGameResult(character, result) {
   if (result.win) character.careerCounters.wins++; else character.careerCounters.losses++;
   if (result.mvp) {
     character.careerCounters.mvps++;
-    character.fame = clamp(character.fame + 1, 0, 100); // 單場MVP，知名度小幅累積
     character.trainingPoints += 1;
   }
 }
@@ -318,8 +317,8 @@ const TRAINING_POINTS_BY_STAGE_TYPE = {
   regular: 2,
   playoff: 0,
   international: 0,
-  offseason_short: 3,
-  offseason_long: 6,
+  offseason_short: 2,
+  offseason_long: 3,
 };
 
 export function grantTrainingPoints(character, stageType) {
@@ -427,18 +426,43 @@ export function previewContract(character, team, runtimeRng) {
 // 國內賽區獎金額外乘賽區倍率（沿用薪資的市場倍率邏輯，反映各賽區獎金池規模差異）
 // -------------------------------------------------------------
 const INTERNATIONAL_PRIZE_MONEY = {
-  "S16世界大賽":   { champion: 400, runnerup: 320 },
+  "世界大賽":   { champion: 400, runnerup: 320 },
   "季中邀請賽":     { champion: 200, runnerup: 120 },
   "電競世界盃EWC": { champion: 200, runnerup: 120 },
   "先鋒賽":         { champion: 100, runnerup: 60 },
 };
 const DOMESTIC_PRIZE_BASE = { champion: 30, runnerup: 12 };
 
+// 場外快訊：純敘事包裝，不代表真的模擬了其他49隊的完整賽程——
+// 加權隨機抽兩支隊伍(強隊機率高)打一場模擬決賽，純粹是給世界增添一點背景聲響
+export function generateWorldsNewsFlash(runtimeRng, eventName, excludeTeamName) {
+  const pool = ALL_TEAMS.filter((t) => t.name !== excludeTeamName);
+  if (pool.length < 2) return null;
+
+  const finalistA = pickWeighted(runtimeRng, pool.map((t) => ({ ...t, weight: t.baseStrength })));
+  const finalistB = pickWeighted(runtimeRng, pool.filter((t) => t.name !== finalistA.name).map((t) => ({ ...t, weight: t.baseStrength })));
+
+  // 依雙方baseStrength算個粗略勝率，模擬BO5比數（3:0~3:2都可能）
+  const diff = finalistA.baseStrength - finalistB.baseStrength;
+  const winProbA = clamp(0.5 + diff / 60, 0.15, 0.85);
+  let winsA = 0, winsB = 0;
+  while (winsA < 3 && winsB < 3) {
+    if (runtimeRng() < winProbA) winsA++; else winsB++;
+  }
+  const champion = winsA === 3 ? finalistA : finalistB;
+  const runnerup = winsA === 3 ? finalistB : finalistA;
+  const score = winsA === 3 ? `${winsA}:${winsB}` : `${winsB}:${winsA}`;
+
+  return `場外快訊｜${eventName}落幕，${champion.name} ${score} 戰勝${runnerup.name}奪冠。`;
+}
+
 export function computePrizeMoney(character, isInternational, eventName, result) {
   if (result !== "冠軍" && result !== "亞軍") return 0;
   const key = result === "冠軍" ? "champion" : "runnerup";
   if (isInternational) {
-    return (INTERNATIONAL_PRIZE_MONEY[eventName]?.[key] ?? 0);
+    // 世界大賽名稱含動態年份編號(S17/S18...)，查表前先把「S數字」前綴拿掉，比對穩定的基礎名稱
+    const normalizedName = eventName.replace(/^S\d+/, "");
+    return (INTERNATIONAL_PRIZE_MONEY[normalizedName]?.[key] ?? 0);
   }
   const regionMult = REGION_SALARY_MULTIPLIER[character.meta.region] ?? 1.0;
   return Math.round(DOMESTIC_PRIZE_BASE[key] * regionMult);
@@ -552,6 +576,7 @@ export function evaluateContractRenewal(character) {
 export function advanceStage(character) {
   let idx = character.meta.currentStageIndex;
   let stage;
+  const skippedInternationals = []; // 沒資格被跳過的國際賽名稱，讓main.js可以生成場外快訊
   do {
     idx = (idx + 1) % SEASON_FLOW.length;
     stage = SEASON_FLOW[idx];
@@ -569,9 +594,15 @@ export function advanceStage(character) {
         qualifiedEvents: [],
       };
     }
+    if (stage.type === "international" && !checkQualification(character, stage.condition)) {
+      const season = 16 + (character.meta.careerYear - 2026);
+      skippedInternationals.push(stage.stage === "世界大賽" ? `S${season}世界大賽` : stage.stage);
+    }
   } while (stage.type === "international" && !checkQualification(character, stage.condition));
 
   character.meta.currentStageIndex = idx;
-  character.meta.currentStageName = stage.stage;
-  return stage;
+  // 世界大賽的S編號要跟著年份走：2026是S16，2027是S17，以此類推，不能整個生涯都寫死S16
+  const season = 16 + (character.meta.careerYear - 2026);
+  character.meta.currentStageName = stage.stage === "世界大賽" ? `S${season}世界大賽` : stage.stage;
+  return { ...stage, skippedInternationals };
 }
