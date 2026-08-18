@@ -273,7 +273,8 @@ function pushLog(text) {
 function renderDashboard() {
   if (character.retired) return renderSummary();
 
-  el("dash-name").innerHTML = `${character.meta.name} ${currentSeed ? `<span class="dash-seed mono">SEED ${currentSeed}</span>` : ""}`;
+  el("dash-name").textContent = character.meta.name;
+  el("dash-seed").innerHTML = currentSeed ? `選手種子<span class="seed-code">${currentSeed}</span>` : "";
   el("dash-info").textContent = `${character.meta.position} · ${character.team.name} · ${character.meta.age}歲 · ${character.meta.careerYear}年`;
   const season = 16 + (character.meta.careerYear - 2026);
   el("dash-stage").textContent = `S${season} ${character.meta.currentStageName}`;
@@ -721,10 +722,14 @@ function runInteractivePlayoff(isInternational, onComplete) {
           const totalKills = gameResults.reduce((s, r) => s + r.kills, 0);
           const totalDeaths = gameResults.reduce((s, r) => s + r.deaths, 0);
           const totalAssists = gameResults.reduce((s, r) => s + r.assists, 0);
-          const avgKda = totalDeaths === 0 ? (totalKills + totalAssists) : Math.round(((totalKills + totalAssists) / totalDeaths) * 100) / 100;
+          // 死亡數0時不要直接顯示擊殺+助攻的原始總和(容易變成KDA 55這種失真的誇張數字)，
+          // 改成明確標示「完美」並附上實際數字，讓玩家看得懂這是什麼意思
+          const kdaText = totalDeaths === 0
+            ? `KDA 完美（0死亡，${totalKills}殺${totalAssists}助攻）`
+            : `平均KDA ${Math.round((totalKills + totalAssists) / totalDeaths * 100) / 100}`;
           const oppName = opponent?.name ?? "未知隊伍";
           const scoreText = `${wins}:${losses}`; // 一律是「我方:對方」，不用因勝負而反轉，之前反轉的邏輯是bug
-          pushLog(`${roundLabel} ${character.team.name} ${scoreText} ${oppName}，${seriesWon ? "系列賽勝出" : "系列賽落敗"}，平均KDA ${avgKda}。`);
+          pushLog(`${roundLabel} ${character.team.name} ${scoreText} ${oppName}，${seriesWon ? "系列賽勝出" : "系列賽落敗"}，${kdaText}。`);
           seriesDone(seriesWon);
         } else {
           playNextGame();

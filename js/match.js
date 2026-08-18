@@ -149,7 +149,9 @@ export function computeMatchWinProbability(character, opponentTeam, matchContext
   const fullContext = { ...matchContext, isUnderdog, conceptualForm };
 
   const advantage = teamMatchValue(character, opponentTeam, metaWeights, fullContext) + randomRange(runtimeRng, -6, 6);
-  const winProb = sigmoid(advantage / 20);
+  // 勝率上下限鎖在15%~85%，不管實力差距多懸殊，弱方永遠保有反擊機會——
+  // 沒有這個限制的話，碾壓局容易整個系列賽死亡數是0，KDA顯示會變成失真的誇張數字
+  const winProb = clamp(sigmoid(advantage / 20), 0.15, 0.85);
   return { winProb, fullContext, advantage };
 }
 
@@ -179,7 +181,9 @@ function simulateTeamKillSplit(winProb, rng) {
   // (68%落在20~40之間、95%落在15~45之間，極端場<15或>45很少見)
   const totalKills = gaussianRandom(rng, 29, 8, 8, 55);
   // 勝率越極端，比分越懸殊；勝率接近50%時比分接近對半
-  const skew = clamp(0.5 + (winProb - 0.5) * 1.3, 0.1, 0.9);
+  // skew上限從0.9收緊到0.8：就算是碾壓局，對方也該留一些擊殺數，不然我方死亡池太小，
+  // 分完5個位置很容易全部round到0，導致KDA顯示變成失真的誇張數字
+  const skew = clamp(0.5 + (winProb - 0.5) * 1.3, 0.15, 0.8);
   const myTeamKills = Math.round(totalKills * skew);
   const oppTeamKills = totalKills - myTeamKills; // 對方的擊殺數 = 我方要承受的團隊總死亡數
   return { myTeamKills, oppTeamKills };

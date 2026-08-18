@@ -666,7 +666,7 @@ export const EVENTS = [
       { fame_min: 60 },
     ],
     title: "廣告邀約",
-    text: "戰隊收到一份合作邀約，某知名品牌想找你跟當紅女團「星映」成員雅琳一起拍一支廣告，宣傳期間會有不少直接互動的橋段。",
+    text: "戰隊收到一份合作邀約，某知名品牌想找你跟當紅女團「星映」成員恩靜一起拍一支廣告，宣傳期間會有不少直接互動的橋段。",
     choices: [
       {
         label: "女人只會影響我拔劍的速度",
@@ -693,7 +693,7 @@ export const EVENTS = [
     cooldown: 999,
     conditions: [{ flag: "認識女明星" },],
     title: "女明星後續",
-    text: "當初拍廣告認識的雅琳想約你一起逛街。",
+    text: "當初拍廣告認識的恩靜想約你一起逛街。",
     choices: [
       {
         label: "你們喬裝打扮偷偷約在咖啡廳見面會合",
@@ -702,7 +702,7 @@ export const EVENTS = [
             { type: "fame_delta", value: 5 }, { type: "dynamic_delta", stat: "心態", value: 10 },
             { type: "flag_set", flag: "跟女明星成功約會" },
           ]},
-          { probability: 0.6, resultText: "被私生飯拍到，你們登上娛樂頭條，雅琳所屬星耀娛樂發表聲明說只是普通朋友。", effects: [
+          { probability: 0.6, resultText: "被私生飯拍到，你們登上娛樂頭條，恩靜所屬星耀娛樂發表聲明說只是普通朋友。", effects: [
             { type: "fame_delta", value: 5 }, { type: "dynamic_delta", stat: "心態", value: -5 },{ type: "stat_delta", stat: "抗壓", value: 4 },{ type: "flag_set", flag: "跟女明星成為一般朋友" },
           ]},
         ],
@@ -722,7 +722,7 @@ export const EVENTS = [
       { fame_min: 80 },
     ],
     title: "女明星後續2",
-    text: "跟女團成員雅琳的感情漸漸加深，你決定...?",
+    text: "跟女團成員恩靜的感情漸漸加深，你決定...?",
     choices: [
       {
         label: "女人只會影響我拔劍的速度",
@@ -750,7 +750,7 @@ export const EVENTS = [
     cooldown: 999,
     conditions: [{ flag: "跟女明星成為一般朋友" },{ flag_not: "有女友" },{ flag_not: "女明星結局" },],
     title: "女明星後續3",
-    text: "你收到了雅琳結婚的消息，男方是知名演員。",
+    text: "你收到了恩靜結婚的消息，男方是知名演員。",
     choices: [
       {
         label: "無所謂，祝福她幸福",
@@ -803,7 +803,7 @@ export const EVENTS = [
           { probability: 0.2, resultText: "你狂吃了一陣子瑪卡，勉強應付了過去。", effects: [
             { type: "dynamic_delta", stat: "體能", value: 20 },{ type: "dynamic_delta", stat: "壓力", value: 10 },
           ]},
-          { probability: 0.8, resultText: "雅琳知道你無法給他足夠的幸福，提出分手。", effects: [
+          { probability: 0.8, resultText: "恩靜知道你無法給他足夠的幸福，提出分手。", effects: [
             { type: "dynamic_delta", stat: "心態", value: -5 },
             { type: "stat_delta", stat: "抗壓", value: -6 },
             { type: "flag_set", flag: "跟女明星成為一般朋友" },
@@ -1506,7 +1506,7 @@ export const EVENTS = [
 // 一旦抽中就歸零重來。彩蛋/感情基礎權重很小(彩蛋只有2，總池124)，用「乘倍率」幾乎沒感覺，
 // 改用「加法」直接疊加權重值，才能在真實遊戲一年僅約7次抽選的頻率下，有效逼近保底
 const PITY_CATEGORIES = ["彩蛋", "感情"]; // 想加其他分類進保底機制，直接加進這個陣列就好
-const PITY_ADD_PER_MISS = 2; // 每次沒抽到，該分類權重直接加10（相對池子總權重~124是有感的漲幅）
+const PITY_ADD_PER_MISS = 3; // 每次沒抽到，該分類權重直接加10（相對池子總權重~124是有感的漲幅）
 const PITY_MAX_ADD = 120; // 上限，避免長期沒資格符合的分類權重無限膨脹
 
 export function pickEvent(character, rng, stageType) {

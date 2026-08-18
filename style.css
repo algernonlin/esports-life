@@ -301,7 +301,8 @@ body {
 }
 .rail-left { position: sticky; top: 28px; }
 .rail-id h2 { font-family: var(--font-display); font-size: 28px; margin: 6px 0 4px; }
-.dash-seed { font-family: var(--font-mono); font-size: 13px; color: var(--accent-warm); font-weight: 400; vertical-align: middle; }
+.dash-seed { margin: 2px 0 0; color: var(--text-primary); }
+.dash-seed .seed-code { color: var(--accent); }
 .small { font-size: 12px; }
 .badge {
   display: inline-block; margin-top: 8px;
