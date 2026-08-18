@@ -301,6 +301,7 @@ body {
 }
 .rail-left { position: sticky; top: 28px; }
 .rail-id h2 { font-family: var(--font-display); font-size: 28px; margin: 6px 0 4px; }
+.dash-seed { font-family: var(--font-mono); font-size: 13px; color: var(--accent-warm); font-weight: 400; vertical-align: middle; }
 .small { font-size: 12px; }
 .badge {
   display: inline-block; margin-top: 8px;
@@ -341,34 +342,7 @@ body {
 
 .train-controls { display: flex; gap: 8px; margin-bottom: 14px; }
 .train-controls select { flex: 1; }
-.train-controls-pair { justify-content: center; }
-.train-controls-pair button {
-  flex: 0 0 calc((100% - 16px) / 3); /* 固定跟下排三個按鈕同寬，置中對齊不撐滿整行 */
-}
-.btn-support-train {
-  background: var(--bg-inset);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent-warm);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 13px;
-  padding: 10px 8px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.btn-support-train:hover { border-color: var(--accent-warm); background: var(--bg-panel-alt); }
-.train-hint {
-  font-size: 12px; color: var(--text-faint);
-  margin: -6px 0 14px;
-  line-height: 1.5;
-}
-.core-train-title {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em;
-  color: var(--text-faint); margin: 4px 0 8px; text-transform: uppercase;
-}
-.btn-core-train {
+.btn-support-train, .btn-core-train {
   flex: 1;
   background: var(--bg-inset);
   border: 1px solid var(--border);
@@ -381,8 +355,24 @@ body {
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
 }
-.btn-core-train:hover { border-color: var(--accent-warm); background: var(--bg-panel-alt); }
+.btn-support-train:hover, .btn-core-train:hover { border-color: var(--accent-warm); background: var(--bg-panel-alt); }
+.btn-core-train:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-left-color: var(--border);
+}
+.btn-core-train:disabled:hover { background: var(--bg-inset); border-color: var(--border); }
+.btn-sub { font-size: 11px; font-weight: 400; color: var(--text-faint); }
+.train-hint {
+  font-size: 12px; color: var(--text-faint);
+  margin: -6px 0 14px;
+  line-height: 1.5;
+}
 .team-avg-strength { display: flex; align-items: baseline; gap: 8px; }
 .team-avg-value { font-family: var(--font-display); font-size: 42px; font-weight: 700; color: var(--accent); line-height: 1; }
 .team-avg-strength.small-avg { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); }

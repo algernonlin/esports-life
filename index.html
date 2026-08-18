@@ -22,7 +22,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
-<div id="build-version" class="build-version">V1.0.6</div>
+<div id="build-version" class="build-version">V2.0.0</div>
 
 <div class="scanline"></div>
 
@@ -131,7 +131,7 @@
     <aside class="rail-left">
       <div class="rail-id">
         <span class="eyebrow">PLAYER</span>
-        <h2 id="dash-name">—</h2>
+        <h2 id="dash-name">— <span id="dash-seed" class="dash-seed"></span></h2>
         <p id="dash-info" class="mono small">—</p>
         <span id="dash-roster" class="badge">—</span>
       </div>
@@ -245,17 +245,18 @@
 
       <div class="panel">
         <h3 class="section-title small">英雄訓練　<span class="mono accent-text" id="training-points">0</span> 點可用</h3>
-        <p class="train-hint">加強項目（只能練這三項，其餘靠事件）同時會帶動對應熟練度區間的英雄手感</p>
+        <p class="train-hint">加強項目（只能練這三項，其餘靠事件）同時會帶動對應熟練度區間的英雄手感；體能歸零時下排會鎖定，先恢復體能再練</p>
 
-        <div class="train-controls train-controls-pair">
-          <button id="btn-fitness" class="btn-support-train">保養體能</button>
-          <button id="btn-relax" class="btn-support-train">紓壓</button>
+        <div class="train-controls">
+          <button id="btn-fitness" class="btn-support-train">保養體能<span class="btn-sub">體能↑</span></button>
+          <button id="btn-relax" class="btn-support-train">紓壓<span class="btn-sub">壓力↓</span></button>
+          <button id="btn-therapy" class="btn-support-train">心理諮商<span class="btn-sub">心態↑</span></button>
         </div>
 
         <div class="train-controls">
-          <button class="btn-core-train" data-stat="反應">加練個人操作</button>
-          <button class="btn-core-train" data-stat="意識">和教練覆盤</button>
-          <button class="btn-core-train" data-stat="版本適應力">研究版本情報</button>
+          <button class="btn-core-train" data-stat="反應">加練個人操作<span class="btn-sub">反應↑・體能↓・練最熟英雄</span></button>
+          <button class="btn-core-train" data-stat="意識">和教練覆盤<span class="btn-sub">意識↑・體能↓・練不熟英雄</span></button>
+          <button class="btn-core-train" data-stat="版本適應力">研究版本情報<span class="btn-sub">版本適應力↑・體能↓・練版本英雄</span></button>
         </div>
       </div>
     </main>

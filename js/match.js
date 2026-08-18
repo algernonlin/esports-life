@@ -2,7 +2,7 @@
 // match.js — 比賽模擬公式
 // 個人表現與隊伍勝負分開計算，才會出現「carry但輸」的狀況
 // ============================================================
-import { META_VERSIONS, POSITION_SPECIALTY, POSITIONS } from "./state.js";
+import { META_VERSIONS, computeSpecialty, POSITION_SPECIALTY, POSITIONS } from "./state.js";
 import { clamp, randomRange, runtimeRng, gaussianRandom } from "./rng.js";
 import { pickMatchChampionFit } from "./champions.js";
 
@@ -28,8 +28,8 @@ function rollConceptualForm(rng) {
 export function personalPerformance(character, matchContext = {}) {
   const { isMajorEvent = false, isInternational = false, isDecidingGame = false, seriesGameIndex = 0, isUnderdog = false, conceptualForm = null } = matchContext;
   const s = character.stats;
-  const specialty = POSITION_SPECIALTY[character.meta.position];
-  const specialtyVal = s[specialty] ?? 50;
+  const specialty = POSITION_SPECIALTY[character.meta.position]; // 名稱字串，給傷病比對用
+  const specialtyVal = computeSpecialty(s, character.meta.position); // 即時算出來的數值
 
   // 版本適應：剛換版本的賽段有過渡期debuff，「版本怪物」天賦可以免疫
   const metaJustChanged = character.flags?.["metaJustChanged"];
@@ -199,7 +199,7 @@ function allocateToPlayer(totalAmount, myPos, metaWeights, perfFactor, profileKe
   return Math.max(0, Math.round(totalAmount * myShare));
 }
 
-export function resolveMatchWithResult(character, fullContext, win, runtimeRng, winProb = 0.5) {
+export function resolveMatchWithResult(character, fullContext, win, runtimeRng, winProb = 0.5, forceHeroic = false) {
   // 世一XX的連勝/連敗持續累積，這裡統一更新（用這場「之前」的streak去影響這場表現，這場結果再更新給下一場用）
   character.matchStreak = win
     ? Math.max(1, (character.matchStreak ?? 0) + 1)
@@ -244,6 +244,14 @@ export function resolveMatchWithResult(character, fullContext, win, runtimeRng, 
 
   // 這就是卡桑帝：團戰不容易死，死亡數額外打折
   if (hasTalent(character, "this_is_kassadin")) deaths = Math.max(0, Math.round(deaths * 0.65));
+
+  // 強制英雄數據(目前給最後大魔王發動時用)：只保證贏球卻打出難看的KDA不合理，
+  // 真的carry隊伍逆轉戰局，數據也該跟得上這個份量——至少5殺10助攻，死亡數壓到0~1
+  if (forceHeroic) {
+    kills = Math.max(kills, Math.round(5 + runtimeRng() * 4));
+    assists = Math.max(assists, Math.round(10 + runtimeRng() * 5));
+    deaths = Math.min(deaths, runtimeRng() < 0.6 ? 0 : 1);
+  }
 
   const kda = deaths === 0 ? kills + assists : (kills + assists) / deaths;
 

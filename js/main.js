@@ -272,7 +272,7 @@ function pushLog(text) {
 function renderDashboard() {
   if (character.retired) return renderSummary();
 
-  el("dash-name").textContent = character.meta.name;
+  el("dash-name").innerHTML = `${character.meta.name} ${currentSeed ? `<span class="dash-seed mono">SEED ${currentSeed}</span>` : ""}`;
   el("dash-info").textContent = `${character.meta.position} · ${character.team.name} · ${character.meta.age}歲 · ${character.meta.careerYear}年`;
   const season = 16 + (character.meta.careerYear - 2026);
   el("dash-stage").textContent = `S${season} ${character.meta.currentStageName}`;
@@ -289,11 +289,10 @@ function renderDashboard() {
     ${statBarHtml("體能", character.dynamic["體能"])}
     ${statBarHtml("壓力", character.dynamic["壓力"])}
   `;
-  el("dash-team").innerHTML = `
-    <div class="team-stat"><span>隊伍化學反應</span><span class="mono">${Math.round(character.team.chemistry)}</span></div>
-    <div class="team-stat"><span>隊伍好感度</span><span class="mono">${Math.round(character.team.favor)}</span></div>
-    <div class="team-stat"><span>媒體評價</span><span class="mono">${Math.round(character.team.reputation)}</span></div>
-  `;
+  el("dash-team").innerHTML =
+    statBarHtml("隊伍化學反應", character.team.chemistry) +
+    statBarHtml("隊伍好感度", character.team.favor) +
+    statBarHtml("媒體評價", character.team.reputation);
   el("dash-fame").textContent = Math.round(character.fame);
   const cs = computeCareerStats(character);
   const cc = character.careerCounters;
@@ -337,6 +336,9 @@ function renderDashboard() {
 
 function renderChampionPanel() {
   el("training-points").textContent = character.trainingPoints;
+  // 體能歸零時鎖定三個核心訓練按鈕(視覺上也要看得出來，不能只靠click handler擋)
+  const staminaEmpty = (character.dynamic["體能"] ?? 100) <= 0;
+  document.querySelectorAll(".btn-core-train").forEach((b) => { b.disabled = staminaEmpty; });
 
   const myPos = character.meta.position;
   const metaIds = character.seasonRecord.metaChampions ?? [];
@@ -435,6 +437,7 @@ function generateTitle(c) {
   if (c.flags["偷偷聯繫粉絲"]) return "草粉";
   if (c.flags["洗澡狗"]) return "洗澡狗";
   if (c.flags["乳牛"]) return "乳牛";
+  if (c.flags["ntr"]) return "牛頭人大師";
   if (c.careerCounters.worldsAppearances >= 2) return "世界賽常客";
   if (c.careerCounters.kills >= 1000) return "生涯千殺傳奇";
   if (c.fame >= 85) return "話題王者";
@@ -460,7 +463,7 @@ function retirementReasonText(c) {
 // 訓練類log合併：同一賽段內多次點擊訓練按鈕，不要每次都各自一行洗版，
 // 累積到緩衝區，等賽段推進時才合併成一行輸出
 function bufferTraining(kind, detail) {
-  const buf = character.flags.__trainingBuffer ?? (character.flags.__trainingBuffer = { core: {}, champBonusHit: false, champGains: {}, fitnessClicks: 0, relaxClicks: 0 });
+  const buf = character.flags.__trainingBuffer ?? (character.flags.__trainingBuffer = { core: {}, champBonusHit: false, champGains: {}, fitnessClicks: 0, relaxClicks: 0, therapyClicks: 0 });
   if (kind === "core") {
     buf.core[detail.stat] = (buf.core[detail.stat] ?? 0) + detail.gain;
     if (detail.champBonus) buf.champBonusHit = true;
@@ -473,6 +476,8 @@ function bufferTraining(kind, detail) {
     buf.fitnessClicks++;
   } else if (kind === "relax") {
     buf.relaxClicks++;
+  } else if (kind === "therapy") {
+    buf.therapyClicks++;
   }
 }
 
@@ -486,6 +491,7 @@ function flushTrainingLog() {
   }
   if (buf.fitnessClicks > 0) parts.push(`保養體能${buf.fitnessClicks}次`);
   if (buf.relaxClicks > 0) parts.push(`紓壓${buf.relaxClicks}次`);
+  if (buf.therapyClicks > 0) parts.push(`心理諮商${buf.therapyClicks}次`);
   if (parts.length) {
     const bonusNote = buf.champBonusHit ? "，練習時順便帶動了部分英雄的手感" : "";
     // 不列一堆抽象的「N人次」，直接講清楚：這賽段練最多的那隻英雄漲了多少熟練度
@@ -723,13 +729,19 @@ function runInteractivePlayoff(isInternational, onComplete) {
       };
 
       if (showDice) {
-        // 最後大魔王：BO5絕境(2:2決勝局)觸發骰子時，直接骰出雙6保證過關
-        const isFinalBoss = isDecidingGame && character.talents.some((t) => t.id === "final_boss");
-        const roll = isFinalBoss ? { d1: 6, d2: 6, sum: 12 } : rollTwoDice(runtimeRng);
+        // 最後大魔王：BO5絕境(2:2決勝局)有50%機率覺醒，覺醒才會直接骰出雙6保證過關，
+        // 而且數據也要跟得上「carry隊伍」的份量，不是只保證贏但KDA照樣難看；沒覺醒就正常骰
+        const hasFinalBossTalent = isDecidingGame && character.talents.some((t) => t.id === "final_boss");
+        const finalBossAwakened = hasFinalBossTalent && runtimeRng() < 0.5;
+        const roll = finalBossAwakened ? { d1: 6, d2: 6, sum: 12 } : rollTwoDice(runtimeRng);
         const { target, prob: actualProb } = probabilityToTarget(winProb);
-        const passed = isFinalBoss ? true : roll.sum >= target;
-        const result = resolveMatchWithResult(character, fullContext, passed, runtimeRng, winProb);
-        const moment = isFinalBoss ? "絕境時刻，你彷彿變了一個人——這一波，沒有人能阻止你。" : rollMatchMoment(runtimeRng);
+        const passed = finalBossAwakened ? true : roll.sum >= target;
+        const result = resolveMatchWithResult(character, fullContext, passed, runtimeRng, winProb, finalBossAwakened);
+        const moment = finalBossAwakened
+          ? "絕境時刻，你彷彿變了一個人——這一波，沒有人能阻止你。"
+          : hasFinalBossTalent
+            ? "你已經盡力了，但這次沒能carry隊友。"
+            : rollMatchMoment(runtimeRng);
 
         el("event-title").textContent = `${isFinal ? "冠軍賽" : "四強賽"} 第${seriesGameIndex + 1}場 vs ${opponent?.name ?? "未知隊伍"}`;
         el("event-text").textContent = moment;
@@ -987,18 +999,15 @@ function showFreeAgencyPrompt(onDone) {
 function applyPositionChange() {
   delete character.flags["待轉位置"];
   const oldPos = character.meta.position;
-  const oldSpecialtyKey = POSITION_SPECIALTY[oldPos];
-  const oldSpecialtyVal = character.stats[oldSpecialtyKey] ?? 50;
 
   const candidates = Object.keys(character.team.positionStrength).filter((p) => p !== oldPos);
   const targetPos = candidates.reduce((weakest, p) =>
     character.team.positionStrength[p] < character.team.positionStrength[weakest] ? p : weakest, candidates[0]);
 
-  const newSpecialtyKey = POSITION_SPECIALTY[targetPos];
-  delete character.stats[oldSpecialtyKey];
-  character.stats[newSpecialtyKey] = clamp(Math.round(oldSpecialtyVal * 0.7), 1, 99);
+  // 專精值(節奏/單線抗壓/運營/視野控制)現在是即時從6個核心能力值算出來的，
+  // 換位置不用再手動搬移數值/打折——同樣的核心能力值，換一個位置套用的公式自然就不同
   character.meta.position = targetPos;
-  pushLog(`轉位置：從「${oldPos}」轉為「${targetPos}」，專精能力打七折延續。`);
+  pushLog(`轉位置：從「${oldPos}」轉為「${targetPos}」。`);
 }
 
 function currentStageRecordKey() {
@@ -1200,9 +1209,18 @@ el("btn-relax").addEventListener("click", () => {
   renderDashboard();
   saveGame();
 });
+el("btn-therapy").addEventListener("click", () => {
+  if (character.trainingPoints < 1) return;
+  character.trainingPoints -= 1;
+  const moodGain = Math.round(8 + runtimeRng() * 7); // 8~15隨機，跟保養體能同量級
+  character.dynamic["心態"] = clamp(character.dynamic["心態"] + moodGain, 0, 100);
+  bufferTraining("therapy");
+  renderDashboard();
+  saveGame();
+});
 document.querySelectorAll(".btn-core-train").forEach((b) =>
   b.addEventListener("click", () => {
-    if (!character || character.trainingPoints < 1) return;
+    if (!character || character.trainingPoints < 1 || character.dynamic["體能"] <= 0) return;
     const stat = b.dataset.stat;
     character.trainingPoints -= 1;
     const staminaCost = Math.round(3 + runtimeRng() * 4); // 訓練會消耗體能，3~7隨機

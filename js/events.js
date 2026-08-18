@@ -15,7 +15,7 @@ export const EVENTS = [
   {
     id: "event_patch_scouting",
     category: "日常",
-    weight: 4,
+    weight: 3,
     cooldown: 10,
     conditions: [],
     title: "版本前瞻研究",
@@ -23,11 +23,11 @@ export const EVENTS = [
     choices: [
       {
         label: "整理筆記跟隊友分享",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "版本適應力", value: 6 }, { type: "team_delta", stat: "chemistry", value: 2 }, { type: "dynamic_delta", stat: "體能", value: -4 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "領導", value: 6 }, { type: "team_delta", stat: "chemistry", value: 2 }, { type: "dynamic_delta", stat: "體能", value: -4 }] }],
       },
       {
         label: "自己偷偷練，先保留優勢",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "版本適應力", value: 6 }, { type: "personality_delta", stat: "團隊取向", value: -8 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "領導", value: 6 }, { type: "personality_delta", stat: "團隊取向", value: -8 }] }],
       },
     ],
   },
@@ -42,7 +42,7 @@ export const EVENTS = [
     choices: [
       {
         label: "採納建議，調整策略",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "版本適應力", value: 4 }, { type: "stat_delta", stat: "意識", value: 2 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "領導", value: 4 }, { type: "stat_delta", stat: "溝通", value: 2 }] }],
       },
       {
         label: "相信自己的直覺，維持原本打法",
@@ -101,7 +101,7 @@ export const EVENTS = [
     choices: [
       {
         label: "馬上下線冷靜",
-        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "心態", value: 4 }, { type: "stat_delta", stat: "意識", value: 2 }] }],
+        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "心態", value: 4 }, { type: "stat_delta", stat: "溝通", value: 2 }] }],
       },
       {
         label: "越打越氣，繼續掛著",
@@ -113,7 +113,7 @@ export const EVENTS = [
   {
     id: "event_lpl_scripted_player",
     category: "日常",
-    weight: 3,
+    weight: 2,
     cooldown: 10,
     conditions: [{ path: "meta.region", equals: "LPL" }],
     title: "遇到演員",
@@ -147,7 +147,7 @@ export const EVENTS = [
         outcomes: [{ effects: [
           { type: "flag_set", flag: "已回應衰退" },
           { type: "flag_set", flag: "轉型意識流" },
-          { type: "stat_delta", stat: "意識", value: 8 },
+          { type: "stat_delta", stat: "溝通", value: 10 },
         ]}],
       },
       {
@@ -164,7 +164,7 @@ export const EVENTS = [
   {
     id: "event_extra_practice",
     category: "日常",
-    weight: 4,
+    weight: 3,
     cooldown: 10,
     conditions: [],
     title: "加練",
@@ -172,7 +172,7 @@ export const EVENTS = [
     choices: [
       {
         label: "紮實地練基本功",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "反應", value: 4 }, { type: "dynamic_delta", stat: "體能", value: -6 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "抗壓", value: 4 }, { type: "dynamic_delta", stat: "體能", value: -6 }] }],
       },
       {
         label: "算了，早點回去休息",
@@ -191,7 +191,7 @@ export const EVENTS = [
     choices: [
       {
         label: "認真提出自己的想法",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "意識", value: 4 }, { type: "team_delta", stat: "favor", value: 3 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "溝通", value: 4 }, { type: "team_delta", stat: "favor", value: 3 }] }],
       },
       {
         label: "隨便應付過去",
@@ -210,7 +210,7 @@ export const EVENTS = [
     choices: [
       {
         label: "認真分析給對方聽",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "版本適應力", value: 4 }, { type: "stat_delta", stat: "溝通", value: 2 }, { type: "fame_delta", value: 4 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "領導", value: 4 }, { type: "stat_delta", stat: "溝通", value: 2 }, { type: "fame_delta", value: 4 }] }],
       },
       {
         label: "隨口敷衍幾句",
@@ -267,7 +267,7 @@ export const EVENTS = [
     choices: [
       {
         label: "花時間慢慢適應新設備",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "反應", value: 2 }, { type: "stat_delta", stat: "版本適應力", value: 2 }, { type: "dynamic_delta", stat: "心態", value: 4 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "抗壓", value: 2 }, { type: "stat_delta", stat: "領導", value: 2 }, { type: "dynamic_delta", stat: "心態", value: 4 }] }],
       },
       {
         label: "繼續用習慣的舊設備",
@@ -309,7 +309,7 @@ export const EVENTS = [
     choices: [
       {
         label: "虛心接受，記下來改進",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "意識", value: 6 }, { type: "dynamic_delta", stat: "心態", value: -4 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "溝通", value: 6 }, { type: "dynamic_delta", stat: "心態", value: -4 }] }],
       },
       {
         label: "認為分析師搞錯情境，當場反駁",
@@ -331,7 +331,7 @@ export const EVENTS = [
     choices: [
       {
         label: "全力配合新體系",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "版本適應力", value: 6 }, { type: "dynamic_delta", stat: "心態", value: -8 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "領導", value: 6 }, { type: "dynamic_delta", stat: "心態", value: -8 }] }],
       },
       {
         label: "私下抱持保留態度",
@@ -350,7 +350,7 @@ export const EVENTS = [
     choices: [
       {
         label: "把握機會多打多學",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "反應", value: 4 }, { type: "stat_delta", stat: "意識", value: 4 }, { type: "dynamic_delta", stat: "體能", value: -12 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "抗壓", value: 4 }, { type: "stat_delta", stat: "溝通", value: 4 }, { type: "dynamic_delta", stat: "體能", value: -12 }] }],
       },
       {
         label: "身心俱疲，只想早點回家",
@@ -410,7 +410,7 @@ export const EVENTS = [
     choices: [
       {
         label: "認了，加緊練版本英雄",
-        outcomes: [{ effects: [{ type: "team_delta", stat: "chemistry", value: -3 }, { type: "dynamic_delta", stat: "心態", value: -6 }, { type: "stat_delta", stat: "版本適應力", value: 2 }] }],
+        outcomes: [{ effects: [{ type: "team_delta", stat: "chemistry", value: -3 }, { type: "dynamic_delta", stat: "心態", value: -6 }, { type: "stat_delta", stat: "領導", value: 2 }] }],
       },
       {
         label: "反嗆回去，憑什麼說我",
@@ -433,7 +433,7 @@ export const EVENTS = [
       },
       {
         label: "左耳進右耳出",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "意識", value: 4 },] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "溝通", value: 4 },] }],
       },
     ],
   },
@@ -452,7 +452,7 @@ export const EVENTS = [
       },
       {
         label: "讓他自己摸索就好",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "意識", value: 4 },{ type: "stat_delta", stat: "溝通", value: -2 },] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "溝通", value: 4 },{ type: "stat_delta", stat: "溝通", value: -2 },] }],
       },
     ],
   },
@@ -488,7 +488,7 @@ export const EVENTS = [
     choices: [
       {
         label: "開播順便聊聊版本心得",
-        outcomes: [{ effects: [{ type: "fame_delta", value: 10 }, { type: "stat_delta", stat: "版本適應力", value: 2 }] }],
+        outcomes: [{ effects: [{ type: "fame_delta", value: 10 }, { type: "stat_delta", stat: "領導", value: 2 }] }],
       },
       {
         label: "婉拒，不想曝光私下排位",
@@ -507,7 +507,7 @@ export const EVENTS = [
     choices: [
       {
         label: "檢討自己還能做更多",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "意識", value: 4 }, { type: "stat_delta", stat: "反應", value: 2 }, { type: "team_delta", stat: "chemistry", value: -3 }] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "溝通", value: 4 }, { type: "stat_delta", stat: "抗壓", value: 2 }, { type: "team_delta", stat: "chemistry", value: -3 }] }],
       },
       {
         label: "在心裡認定是隊友拖累",
@@ -540,7 +540,7 @@ export const EVENTS = [
     id: "event_roster_rumor",
     category: "輿論",
     weight: 3,
-    cooldown: 20,
+    cooldown: 21,
     conditions: [{ fame_min: 20 }],
     title: "轉隊傳聞",
     text: "論壇上開始流傳你即將轉隊的傳聞，隊友看你的眼神都變得有點微妙。",
@@ -569,7 +569,7 @@ export const EVENTS = [
     choices: [
       {
         label: "不理會，專心練習",
-        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "心態", value: 6 }, { type: "stat_delta", stat: "意識", value: 2 }] }],
+        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "心態", value: 6 }, { type: "stat_delta", stat: "溝通", value: 2 }] }],
       },
       {
         label: "在社群上回嗆",
@@ -620,7 +620,7 @@ export const EVENTS = [
       },
       {
         label: "「我已經在研究下個版本的對手了」",
-        outcomes: [{ effects: [{ type: "fame_delta", value: 16 }, { type: "stat_delta", stat: "版本適應力", value: 2 }] }],
+        outcomes: [{ effects: [{ type: "fame_delta", value: 16 }, { type: "stat_delta", stat: "領導", value: 2 }] }],
       },
       {
         label: "「回家養豬」",
@@ -636,7 +636,7 @@ export const EVENTS = [
   {
     id: "event_fan_protest",
     category: "輿論",
-    weight: 4,
+    weight: 3,
     cooldown: 10,
     conditions: [{ path: "team.favor", max: 25 }, { fame_min: 20 }],
     title: "戰隊大樓前的抗議",
@@ -669,15 +669,15 @@ export const EVENTS = [
     text: "戰隊收到一份合作邀約，某知名品牌想找你跟當紅女團「星映」成員雅琳一起拍一支廣告，宣傳期間會有不少直接互動的橋段。",
     choices: [
       {
-        label: "保持專業距離，公事公辦",
+        label: "女人只會影響我拔劍的速度",
         outcomes: [{ effects: [{ type: "fame_delta", value: 10 }, { type: "stat_delta", stat: "溝通", value: 2 }] }],
       },
       {
         label: "私下要了聯繫方式",
         outcomes: [
           { probability: 0.5, resultText: "後續聊得不錯，你們私下開始有聯繫。", effects: [
-            { type: "fame_delta", value: 10 }, { type: "dynamic_delta", stat: "心態", value: 8 },
-            { type: "flag_set", flag: "偷偷聯繫粉絲" },
+            { type: "fame_delta", value: 10 }, { type: "dynamic_delta", stat: "心態", value: 10 },
+            { type: "flag_set", flag: "認識女明星" },
           ]},
           { probability: 0.5, resultText: "對方只是客氣回應，沒有進一步發展，你自己也覺得有點尷尬。", effects: [
             { type: "fame_delta", value: 10 }, { type: "dynamic_delta", stat: "心態", value: -4 },
@@ -687,9 +687,137 @@ export const EVENTS = [
     ],
   },
   {
-    id: "event_confession",
+    id: "event_idol",
     category: "感情",
     weight: 3,
+    cooldown: 999,
+    conditions: [{ flag: "認識女明星" },],
+    title: "女明星後續",
+    text: "當初拍廣告認識的雅琳想約你一起逛街。",
+    choices: [
+      {
+        label: "你們喬裝打扮偷偷約在咖啡廳見面會合",
+        outcomes: [
+          { probability: 0.4, resultText: "沒人發現你們偷偷去約會，你們感情漸漸加深。", effects: [
+            { type: "fame_delta", value: 10 }, { type: "dynamic_delta", stat: "心態", value: 10 },
+            { type: "flag_set", flag: "跟女明星成功約會" },
+          ]},
+          { probability: 0.6, resultText: "被私生飯拍到，你們登上娛樂頭條，雅琳所屬星耀娛樂發表聲明說只是普通朋友。", effects: [
+            { type: "fame_delta", value: 10 }, { type: "dynamic_delta", stat: "心態", value: -5 },{ type: "stat_delta", stat: "抗壓", value: 4 },{ type: "flag_set", flag: "跟女明星成為一般朋友" },
+          ]},
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "event_idol2",
+    category: "感情",
+    weight: 3,
+    cooldown: 999,
+    conditions: [
+      { path: "careerCounters.fmvps", min: 3 },
+      { flag: "跟女明星成功約會" },
+      { flag_not: "女明星結局" },
+      { fame_min: 80 },
+    ],
+    title: "女明星後續2",
+    text: "跟女團成員雅琳的感情漸漸加深，你決定...?",
+    choices: [
+      {
+        label: "女人只會影響我拔劍的速度",
+        outcomes: [{ effects: [{ type: "fame_delta", value: -5 }, { type: "dynamic_delta", stat: "心態", value: -5 },{ type: "stat_delta", stat: "領導", value: 5 }] }],
+      },
+      {
+        label: "跟她確定關係",
+        outcomes: [
+          { probability: 0.4, resultText: "你們成功確定關係，你甚至在她家住了一晚。", effects: [
+            { type: "dynamic_delta", stat: "心態", value: 10 },{ type: "stat_delta", stat: "抗壓", value: 8 },{ type: "dynamic_delta", stat: "壓力", value: -10 },{ type: "dynamic_delta", stat: "體能", value: -6 },
+            { type: "flag_set", flag: "跟女明星更進一步" },
+          ]},
+          { probability: 0.6, resultText: "她想了一下，還是決定以事業為重。", effects: [
+            { type: "dynamic_delta", stat: "心態", value: -5 },{ type: "stat_delta", stat: "抗壓", value: -4 },{ type: "flag_set", flag: "跟女明星成為一般朋友" },
+          ]},
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "event_idol3",
+    category: "感情",
+    weight: 3,
+    cooldown: 999,
+    conditions: [{ flag: "跟女明星成為一般朋友" },{ flag_not: "有女友" },{ flag_not: "女明星結局" },],
+    title: "女明星後續3",
+    text: "你收到了雅琳結婚的消息，男方是知名演員。",
+    choices: [
+      {
+        label: "無所謂，祝福她幸福",
+        outcomes: [
+          { probability: 0.4, resultText: "你的灑脫心態助力你的實力更進一步。", effects: [
+            { type: "dynamic_delta", stat: "心態", value: 10 },
+            { type: "stat_delta", stat: "抗壓", value: 8 },
+            { type: "dynamic_delta", stat: "壓力", value: -10 },
+            { type: "stat_delta", stat: "溝通", value: 4 },{ type: "stat_delta", stat: "領導", value: 4 },
+            { type: "flag_set", flag: "女明星結局" },
+          ]},
+          { probability: 0.6, resultText: "嘴上說無所謂，其實心裡很痛，你借酒澆愁連續打了rank 48小時。", effects: [
+            { type: "dynamic_delta", stat: "心態", value: -5 },
+            { type: "stat_delta", stat: "抗壓", value: -10 },
+            { type: "dynamic_delta", stat: "壓力", value: 30 },
+            { type: "flag_set", flag: "女明星結局" },
+          ]},
+        ],
+      },
+      {
+        label: "試著約她出來",
+        outcomes: [
+          { probability: 0.4, resultText: "原來她心裡一直有你，你成功給男明星戴了一頂綠帽子。", effects: [
+            { type: "dynamic_delta", stat: "心態", value: 10 },{ type: "stat_delta", stat: "抗壓", value: 8 },{ type: "dynamic_delta", stat: "壓力", value: -10 },{ type: "dynamic_delta", stat: "體能", value: -6 },
+            { type: "flag_set", flag: "ntr" },
+          ]},
+          { probability: 0.6, resultText: "約她的訊息恰好被男明星看到，他在社交平台發文指名批評，輿論一片譁然。", effects: [
+            { type: "dynamic_delta", stat: "心態", value: -5 },
+            { type: "stat_delta", stat: "抗壓", value: -10 },
+            { type: "dynamic_delta", stat: "壓力", value: 30 },
+            { type: "flag_set", flag: "女明星結局" },
+          ]},
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "event_idol4",
+    category: "感情",
+    weight: 3,
+    cooldown: 999,
+    conditions: [{ flag: "跟女明星更進一步" },{ path: "dynamic.體能", max: 0 },],
+    title: "女明星後續4",
+    text: "你兼顧跟女明星的索求及訓練，體力逐漸不支。",
+    choices: [
+      {
+        label: "男人怎麼能說不行",
+        outcomes: [
+          { probability: 0.2, resultText: "你狂吃了一陣子瑪卡，勉強應付了過去。", effects: [
+            { type: "dynamic_delta", stat: "體能", value: 20 },{ type: "dynamic_delta", stat: "壓力", value: 10 },
+          ]},
+          { probability: 0.8, resultText: "雅琳知道你無法給他足夠的幸福，提出分手。", effects: [
+            { type: "dynamic_delta", stat: "心態", value: -5 },
+            { type: "stat_delta", stat: "抗壓", value: -6 },
+            { type: "flag_set", flag: "跟女明星成為一般朋友" },
+          ]},
+        ],
+      },
+    ],
+  },
+
+
+  {
+    id: "event_confession",
+    category: "感情",
+    weight: 2,
     cooldown: 999,
     conditions: [{ fame_min: 25 }, { flag_not: "有女友" }],
     title: "私訊表白",
@@ -931,7 +1059,7 @@ export const EVENTS = [
     choices: [
       {
         label: "來都來了",
-        outcomes: [{ effects: [{ type: "personality_delta", stat: "自我評價", value: 4 }, { type: "stat_delta", stat: "意識", value: 2 }, { type: "stat_delta", stat: "版本適應力", value: 6 }] }],
+        outcomes: [{ effects: [{ type: "personality_delta", stat: "自我評價", value: 4 }, { type: "stat_delta", stat: "溝通", value: 2 }, { type: "stat_delta", stat: "領導", value: 6 }] }],
       },
       {
         label: "當場失態離開",
@@ -943,7 +1071,7 @@ export const EVENTS = [
   {
     id: "event_baby_spirit_gate",
     category: "感情",
-    weight: 3,
+    weight: 5,
     cooldown: 999,
     conditions: [{ flag: "曾要求墮胎" }, { flag_not: "已渡化嬰靈" }],
     title: "嬰靈之門",
@@ -952,8 +1080,8 @@ export const EVENTS = [
       {
         label: "找廟裡做法事超度",
         outcomes: [{ resultText: "花了一筆錢做完法事，心裡的陰影總算淡了一些。", effects: [
-          { type: "stat_delta", stat: "反應", value: -12 },
-          { type: "stat_delta", stat: "意識", value: -12 },
+          { type: "stat_delta", stat: "抗壓", value: -12 },
+          { type: "stat_delta", stat: "溝通", value: -12 },
           { type: "stat_delta", stat: "抗壓", value: -8 },
           { type: "dynamic_delta", stat: "心態", value: -20 },
           { type: "money_percent", value: -0.5 },
@@ -963,8 +1091,8 @@ export const EVENTS = [
       {
         label: "不理會，硬撐過去",
         outcomes: [{ resultText: "你選擇硬撐，但這股陰影似乎還沒有真正離開。", effects: [
-          { type: "stat_delta", stat: "反應", value: -20 },
-          { type: "stat_delta", stat: "意識", value: -20 },
+          { type: "stat_delta", stat: "抗壓", value: -20 },
+          { type: "stat_delta", stat: "溝通", value: -20 },
           { type: "stat_delta", stat: "抗壓", value: -16 },
           { type: "dynamic_delta", stat: "心態", value: -36 },
         ]}],
@@ -1099,7 +1227,7 @@ export const EVENTS = [
     choices: [
       {
         label: "願意嘗試轉位置",
-        outcomes: [{ effects: [{ type: "flag_set", flag: "待轉位置" }, { type: "stat_delta", stat: "版本適應力", value: 2 }] }],
+        outcomes: [{ effects: [{ type: "flag_set", flag: "待轉位置" }, { type: "stat_delta", stat: "領導", value: 2 }] }],
       },
       {
         label: "堅持守住原本位置",
@@ -1113,7 +1241,7 @@ export const EVENTS = [
     id: "event_ktv_invite",
     category: "彩蛋",
     weight: 3,
-    cooldown: 10,
+    cooldown: 15,
     conditions: [{ fame_min: 15 }],
     title: "商業聚會邀約",
     text: "贊助商私下邀你去商K放鬆，順便交流交流，去不去？",
@@ -1142,7 +1270,7 @@ export const EVENTS = [
   {
     id: "event_relationship_leak",
     category: "彩蛋",
-    weight: 2,
+    weight: 1,
     cooldown: 999,
     conditions: [{ OR: [{ flag: "曾要求墮胎" }, { flag: "有秘密女友" }] }, { fame_min: 35 }],
     title: "私密對話外流",
@@ -1317,7 +1445,7 @@ export const EVENTS = [
     id: "event_slip_injury",
     category: "彩蛋",
     weight: 2,
-    cooldown: 100,
+    cooldown: 50,
     conditions: [],
     title: "意外的一跤",
     text: "你在浴室滑倒，重重摔了一下，腰部傳來一陣刺痛。",

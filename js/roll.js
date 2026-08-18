@@ -1,7 +1,7 @@
 // ============================================================
 // roll.js — 開局擲骰（吃 seedRng，可重現、可分享）
 // ============================================================
-import { STAT_KEYS, PERSONALITY_TRAITS, POSITION_SPECIALTY, INNATE_TALENTS } from "./state.js";
+import { STAT_KEYS, PERSONALITY_TRAITS, INNATE_TALENTS } from "./state.js";
 import { gaussianRandom, clamp, randomRange } from "./rng.js";
 import { CHAMPIONS } from "./champions.js";
 
@@ -14,7 +14,7 @@ export function rollStats(seedRng, position, talents = []) {
     // 開局要稍微壓低極端高分的機率，避免變成每個角色隨便都能一開局就先發
     stats[key] = gaussianRandom(seedRng, 48, 13);
   }
-  stats[POSITION_SPECIALTY[position]] = gaussianRandom(seedRng, 50, 13);
+  // 專精值(節奏/單線抗壓/運營/視野控制)不再獨立roll，改用computeSpecialty()從這6個核心即時算出來
 
   // 孤狼：反應/意識加成，溝通/領導減損——單打獨鬥能力強，但不擅長打團體戰
   if (talents.some((t) => t.id === "lone_wolf")) {

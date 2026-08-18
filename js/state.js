@@ -13,6 +13,24 @@ export const POSITION_SPECIALTY = {
   "輔助": "視野控制",
 };
 
+// 專精值不再是獨立roll、獨立記錄的數字，改成用6個核心能力值即時算出來——
+// 原本專精值完全沒有訓練/事件管道能碰到，形同虛設，改成公式後至少會隨著核心能力值一起變動
+export function computeSpecialty(stats, position) {
+  const s = stats;
+  switch (position) {
+    case "打野": case "中路":
+      return (s["反應"] ?? 50) * 0.5 + (s["版本適應力"] ?? 50) * 0.5; // 節奏：手速+版本知識=抓節奏能力
+    case "上路":
+      return (s["抗壓"] ?? 50) * 0.5 + (s["反應"] ?? 50) * 0.5; // 單線抗壓：扛壓力+反應=單線生存力
+    case "ADC":
+      return (s["意識"] ?? 50) * 0.5 + (s["版本適應力"] ?? 50) * 0.5; // 運營：意識+版本知識=資源運營判斷
+    case "輔助":
+      return (s["溝通"] ?? 50) * 0.5 + (s["領導"] ?? 50) * 0.5; // 視野控制：溝通+領導=視野協調指揮
+    default:
+      return 50;
+  }
+}
+
 // 賽區薪資市場倍率：反映真實世界薪資水準落差（市場規模跟資本，不是純競技強度）
 // LPL資本最雄厚、LCK/LCS其次、LEC基準、LCP市場最小
 export const REGION_SALARY_MULTIPLIER = {
@@ -59,61 +77,61 @@ function buildTeams(list, regionName) {
 export const TEAMS = {
   LPL: buildTeams([
     { name: "BLG",  baseStrength: 95 },
-    { name: "AL",   baseStrength: 92 },
-    { name: "TES",  baseStrength: 91 },
-    { name: "JDG",  baseStrength: 89 },
-    { name: "NIP",  baseStrength: 83 },
-    { name: "WBG",  baseStrength: 79 },
+    { name: "AL",   baseStrength: 91 },
+    { name: "TES",  baseStrength: 90 },
+    { name: "JDG",  baseStrength: 88 },
+    { name: "NIP",  baseStrength: 82 },
+    { name: "WBG",  baseStrength: 78 },
     { name: "IG",   baseStrength: 84 },
-    { name: "WE",   baseStrength: 84 },
+    { name: "WE",   baseStrength: 83 },
     { name: "LNG",  baseStrength: 70 },
-    { name: "TT",   baseStrength: 70 },
-    { name: "LGD",  baseStrength: 76 },
-    { name: "EDG",  baseStrength: 65 },
-    { name: "OMG",  baseStrength: 63 },
-    { name: "UP",   baseStrength: 63 },
+    { name: "TT",   baseStrength: 75 },
+    { name: "LGD",  baseStrength: 78 },
+    { name: "EDG",  baseStrength: 69 },
+    { name: "OMG",  baseStrength: 67 },
+    { name: "UP",   baseStrength: 67 },
   ], "LPL"),
   LCK: buildTeams([
     { name: "HLE",  baseStrength: 95 },
     { name: "GEN",  baseStrength: 94 },
     { name: "T1",   baseStrength: 92 },
     { name: "DK",   baseStrength: 90 },
-    { name: "KT",   baseStrength: 88 },
-    { name: "BFX",  baseStrength: 77 },
-    { name: "KRX",  baseStrength: 69 },
-    { name: "NS",   baseStrength: 77 },
-    { name: "BRO",  baseStrength: 67 },
-    { name: "DNS",  baseStrength: 62 },
+    { name: "KT",   baseStrength: 89 },
+    { name: "BFX",  baseStrength: 80 },
+    { name: "KRX",  baseStrength: 66 },
+    { name: "NS",   baseStrength: 75 },
+    { name: "BRO",  baseStrength: 73 },
+    { name: "DNS",  baseStrength: 67 },
   ], "LCK"),
   LEC: buildTeams([
-    { name: "G2",   baseStrength: 89 },
-    { name: "KC",   baseStrength: 89 },
-    { name: "MKOI", baseStrength: 81 },
-    { name: "VIT",  baseStrength: 73 },
-    { name: "GX",   baseStrength: 70 },
-    { name: "NAVI", baseStrength: 67 },
-    { name: "SHFT", baseStrength: 64 },
-    { name: "SK",   baseStrength: 63 },
-    { name: "TH",   baseStrength: 61 },
+    { name: "G2",   baseStrength: 90 },
+    { name: "KC",   baseStrength: 88 },
+    { name: "MKOI", baseStrength: 83 },
+    { name: "VIT",  baseStrength: 77 },
+    { name: "GX",   baseStrength: 73 },
+    { name: "NAVI", baseStrength: 69 },
+    { name: "SHFT", baseStrength: 66 },
+    { name: "SK",   baseStrength: 64 },
+    { name: "TH",   baseStrength: 63 },
   ], "LEC"),
   LCS: buildTeams([
-    { name: "LYON",  baseStrength: 88 },
-    { name: "FLY",   baseStrength: 86 },
-    { name: "TLAW",  baseStrength: 84 },
+    { name: "LYON",  baseStrength: 87 },
+    { name: "FLY",   baseStrength: 85 },
+    { name: "TLAW",  baseStrength: 83 },
     { name: "C9",    baseStrength: 78 },
-    { name: "SEN",   baseStrength: 69 },
-    { name: "SR",    baseStrength: 67 },
-    { name: "DSG",   baseStrength: 66 },
-    { name: "DIG",   baseStrength: 63 },
+    { name: "SEN",   baseStrength: 71 },
+    { name: "SR",    baseStrength: 69 },
+    { name: "DSG",   baseStrength: 67 },
+    { name: "DIG",   baseStrength: 66 },
   ], "LCS"),
   LCP: buildTeams([
-    { name: "TSW",  baseStrength: 82 },
-    { name: "CFO",  baseStrength: 81 },
-    { name: "GAM",  baseStrength: 75 },
-    { name: "DCG",  baseStrength: 73 },
-    { name: "MVK",  baseStrength: 79 },
-    { name: "SHG",  baseStrength: 65 },
-    { name: "GZ",   baseStrength: 64 },
+    { name: "TSW",  baseStrength: 83 },
+    { name: "CFO",  baseStrength: 82 },
+    { name: "GAM",  baseStrength: 80 },
+    { name: "DCG",  baseStrength: 75 },
+    { name: "MVK",  baseStrength: 81 },
+    { name: "SHG",  baseStrength: 66 },
+    { name: "GZ",   baseStrength: 69 },
     { name: "DFM",  baseStrength: 60 },
   ], "LCP"),
 };
@@ -225,7 +243,7 @@ export function createCharacter({ name, position, region, teamName }) {
     },
     stats: {
       "反應": 50, "意識": 50, "抗壓": 50, "溝通": 50, "版本適應力": 50, "領導": 50,
-      [POSITION_SPECIALTY[position]]: 50,
+      // 專精值(節奏/單線抗壓/運營/視野控制)不再是獨立欄位，改用computeSpecialty()即時算
     },
     personality: {
       "決斷風格": 0, "團隊取向": 0, "社交傾向": 0, "心境": 0,
