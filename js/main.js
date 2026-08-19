@@ -244,7 +244,7 @@ function renderInvitations() {
     b.addEventListener("click", () => {
       const row = invitedRows.find((r) => r.team.name === b.dataset.team);
       const t = row.team;
-      character.team = { ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength, reputation: t.reputation };
+      character.team = { ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength, reputation: t.reputation, yearsWithTeam: 0 };
       character.team.contractYears = row.contract.years;
       character.team.contractSalary = row.contract.annualSalary;
       character.rosterStatus = row.contract.predictedRoster;
@@ -562,7 +562,6 @@ function advance() {
   const stageType = SEASON_FLOW[character.meta.currentStageIndex].type;
 
   grantTrainingPoints(character, stageType);
-  tickChampionDecay(character, runtimeRng);
   paySalary(character); // 每個賽段發放一次薪水，不管當下是不是比賽賽段
 
   // 壓力累積／消退：接近大賽自動累積（抗壓值可以緩衝累積量），休賽期自然消退
@@ -587,7 +586,7 @@ function advance() {
     rollMetaVersion(character, runtimeRng);
     const stageKey = currentStageRecordKey();
     const { wins, losses, teamWins, teamLosses, longestWinStreak, longestLossStreak, totalGames, stageMvpCount } = simulateRegularStage(character, runtimeRng);
-    // 隊伍整體戰績跟你個人出賽戰績分開存：季後賽晉級看隊伍的，生涯數據看個人的
+    // 隊伍整體戰績跟你個人出賽戰績分開存：季後賽晉級看隊伍的，生涯數據看你個人的
     character.seasonRecord[stageKey].wins += wins;
     character.seasonRecord[stageKey].losses += losses;
     character.seasonRecord[stageKey].teamWins = (character.seasonRecord[stageKey].teamWins ?? 0) + teamWins;
@@ -626,7 +625,8 @@ function advance() {
         character.seasonRecord.qualifiedEvents.push({ name: character.meta.currentStageName, result });
         character.careerCounters.worldsAppearances += character.meta.currentStageName.endsWith("世界大賽") ? 1 : 0;
         character.fame = clamp(character.fame + 10, 0, 100);
-        pushLog(`${character.meta.currentStageName} 結果：${result}，知名度提升。`);
+        character.stats["抗壓"] = clamp(character.stats["抗壓"] + 2, 1, 99); // 扛過國際賽等級的壓力，抗壓能力自然提升
+        pushLog(`${character.meta.currentStageName} 結果：${result}，知名度提升。　[抗壓+2]`);
         if (character.talents.some((t) => t.id === "semifinal_enough")) {
           character.dynamic["心態"] = clamp(character.dynamic["心態"] - 10, 0, 100);
           pushLog(`打完國際賽後有點鬆懈，狀態出現下滑。`);
@@ -653,6 +653,19 @@ function advance() {
   } else if (stageType === "offseason_long") {
     tickInjuries(character, runtimeRng);
     applyAgeDecay(character, runtimeRng);
+    const decayedChamps = tickChampionDecay(character, runtimeRng); // 熟練度生疏判定改成只在長休賽期跑一次
+    if (decayedChamps.length > 0) {
+      const names = decayedChamps.map((id) => getChampion(id)?.name ?? id).join("、");
+      pushLog(`久未使用，${names}的手感有點生疏，熟練度略微下滑。`);
+    }
+
+    // 在同一支隊伍待久了，磨合久了溝通能力自然提升
+    character.team.yearsWithTeam = (character.team.yearsWithTeam ?? 0) + 1;
+    if (character.team.yearsWithTeam >= 1) {
+      character.stats["溝通"] = clamp(character.stats["溝通"] + 1, 1, 99);
+      pushLog(`在 ${character.team.name} 待了${character.team.yearsWithTeam}年，跟隊友的默契更好了。　[溝通+1]`);
+    }
+
     snapshotYearRecord(character); // 存這年的逐年戰績快照，要在seasonRecord跨年重置前呼叫
     const yearHonors = evaluateYearEndHonors(character);
     if (yearHonors.yearEndMVP) pushLog(`🏆 榮獲年度常規賽MVP！`);
@@ -861,6 +874,7 @@ function applyTrade() {
     reputation: dest.reputation,
     chemistry: 50,   // 新隊伍化學反應歸零重新累積
     favor: 50,
+    yearsWithTeam: 0,
     contractYears: contract.years,
   };
   character.team.contractSalary = contract.annualSalary;
@@ -928,9 +942,13 @@ function showFreeAgencyPrompt(onDone) {
     const reg = r.team.region;
     (byRegion[reg] ??= []).push(r);
   });
-  Object.keys(byRegion).forEach((reg) => {
-    byRegion[reg].sort((a, b) => b.prob - a.prob);
-  });
+  // 自由市場(合約到期後)不要每次都固定取「機率最高的前幾支」，不然能力值沒大幅變動的話，
+  // 每次都會收斂到同樣那幾支墊底隊伍——改成在「真的有發出邀請的隊伍」裡隨機抽，弱隊還是機率高(因為邀請機率本身就跟位置需求掛鉤)，
+  // 但具體是哪幾支不會每次都一樣
+  function pickRandomOffers(rows, count) {
+    const shuffled = [...rows].sort(() => runtimeRng() - 0.5);
+    return shuffled.slice(0, count);
+  }
 
   const myRegion = character.meta.region;
   const otherRegions = REGIONS.filter((r) => r !== myRegion);
@@ -960,7 +978,7 @@ function showFreeAgencyPrompt(onDone) {
 
   function showDomesticStep() {
     // 原隊(留隊) + 本賽區最多2隊有意向的隊伍，共3個選項
-    const domesticOffers = (byRegion[myRegion] ?? []).slice(0, 2).map((r) => ({ ...r, contract: previewContract(character, r.team, runtimeRng) }));
+    const domesticOffers = pickRandomOffers(byRegion[myRegion] ?? [], 2).map((r) => ({ ...r, contract: previewContract(character, r.team, runtimeRng) }));
     const stayContract = previewContract(character, character.team, runtimeRng); // 留隊：用原隊強度重新議價一次
 
     const buttons = [
@@ -983,7 +1001,7 @@ function showFreeAgencyPrompt(onDone) {
   }
 
   function showAbroadTeamStep(region) {
-    const teams = (byRegion[region] ?? []).slice(0, 3).map((r) => ({ ...r, contract: previewContract(character, r.team, runtimeRng) }));
+    const teams = pickRandomOffers(byRegion[region] ?? [], 3).map((r) => ({ ...r, contract: previewContract(character, r.team, runtimeRng) }));
     const buttons = teams.length
       ? teams.map((r) => `<button class="btn-choice" data-team="${r.team.name}">${r.team.name}（${ROSTER_LABEL[r.contract.predictedRoster]}・${r.contract.years}年約・總價${r.contract.totalValue.toLocaleString()}萬）</button>`).join("")
       : `<div class="empty-hint">這個賽區目前沒有隊伍向你招手。</div><button class="btn-choice" data-act="back">回上一步</button>`;
@@ -1010,7 +1028,7 @@ function showFreeAgencyPrompt(onDone) {
     const oldRegion = character.meta.region;
     character.team = {
       ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength,
-      reputation: t.reputation, chemistry: 50, favor: 50, contractYears: row.contract.years,
+      reputation: t.reputation, chemistry: 50, favor: 50, yearsWithTeam: 0, contractYears: row.contract.years,
     };
     character.team.contractSalary = row.contract.annualSalary;
     character.rosterStatus = row.contract.predictedRoster;

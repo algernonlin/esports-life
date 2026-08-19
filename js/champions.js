@@ -291,17 +291,20 @@ export function trainChampion(character, championId, points, currentStageIndex) 
 // 遺忘機制：超過保鮮期(2個賽段)沒練，機率性衰退，有下限(30%)
 // -------------------------------------------------------------
 export function decayChampionProficiency(character, currentStageIndex, runtimeRng) {
+  const decayedChamps = [];
   for (const [id, entry] of Object.entries(character.champions)) {
     const gap = currentStageIndex - entry.lastPracticedStage;
     if (gap <= 2) continue;
-    const decayProb = clamp(0.1 * (gap - 2), 0, 0.5);
+    const decayProb = clamp(0.03 * (gap - 2), 0, 0.1); // 封頂10%，且長休賽期才判定一次，不用每個賽段都算
     if (runtimeRng() < decayProb) {
       const floor = entry.peakProficiency ? entry.peakProficiency * 0.3 : entry.proficiency * 0.3;
       entry.peakProficiency = Math.max(entry.peakProficiency ?? entry.proficiency, entry.proficiency);
       const drop = entry.proficiency * (0.05 + runtimeRng() * 0.1);
       entry.proficiency = clamp(entry.proficiency - drop, floor, 100);
+      decayedChamps.push(id);
     }
   }
+  return decayedChamps;
 }
 
 // -------------------------------------------------------------

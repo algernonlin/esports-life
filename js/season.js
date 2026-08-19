@@ -258,10 +258,15 @@ export function applyAgeDecay(character, runtimeRng) {
   }
 
   if (runtimeRng() < prob) {
+    character.flags["衰退期"] = true; // 一旦真的觸發過衰退，就標記進入衰退期，讓衰退期限定事件可以開始出現
     const reactionDrop = Math.round(randomRange(runtimeRng, 1, 3));
     character.stats["反應"] = clamp(character.stats["反應"] - reactionDrop, 1, 99);
     character.dynamic["體能"] = clamp(character.dynamic["體能"] - Math.round(randomRange(runtimeRng, 2, 5)), 0, 100);
     character.decline.totalReactionLoss += reactionDrop;
+
+    // 版本適應力也會隨年齡衰退：老將對新版本的敏銳度不如年輕選手
+    const metaDrop = Math.round(randomRange(runtimeRng, 1, 3));
+    character.stats["版本適應力"] = clamp(character.stats["版本適應力"] - metaDrop, 1, 99);
   }
 }
 
@@ -331,7 +336,7 @@ export function grantTrainingPoints(character, stageType) {
 }
 
 export function tickChampionDecay(character, runtimeRng) {
-  decayChampionProficiency(character, character.meta.currentStageIndex, runtimeRng);
+  return decayChampionProficiency(character, character.meta.currentStageIndex, runtimeRng);
 }
 
 // -------------------------------------------------------------

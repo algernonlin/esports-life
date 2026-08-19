@@ -272,6 +272,7 @@ export function createCharacter({ name, position, region, teamName }) {
       favor: 50,
       contractYears: 2,
       contractSalary: 0, // 簽約當下鎖定的年薪(萬)，換約才會重新算
+      yearsWithTeam: 0,  // 在這支隊伍待了幾年，換隊時歸零重算
     },
     careerCounters: {
       kills: 0, assists: 0, deaths: 0, wins: 0, losses: 0, appearances: 0, mvps: 0, worldsAppearances: 0,
