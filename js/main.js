@@ -1311,6 +1311,7 @@ function showContinuePrompt(saved) {
 
   el("btn-continue-no").addEventListener("click", () => {
     clearSave();
+    renderSetup(); // 這條路徑之前漏掉重新渲染，導致位置/起始賽區選單是空的，要重整才會正常
     showScreen("screen-setup");
   }, { once: true });
 }

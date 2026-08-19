@@ -25,7 +25,7 @@ export const EVENTS = [
     choices: [
       {
         label: "加強保養，正視現實",
-        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "體能", value: 6 }, { type: "dynamic_delta", stat: "心態", value: -4 },{ type: "stat_delta", stat: "反應", value: -3 },] }],
+        outcomes: [{ effects: [{ type: "dynamic_delta", stat: "體能", value: 6 }, { type: "dynamic_delta", stat: "心態", value: -4 }] }],
       },
       {
         label: "不想面對，繼續高強度訓練",
@@ -54,7 +54,7 @@ export const EVENTS = [
       },
       {
         label: "放寬心態，準備扶植接班人",
-        outcomes: [{ effects: [{ type: "stat_delta", stat: "領導", value: 4 }, { type: "dynamic_delta", stat: "心態", value: 4 },{ type: "stat_delta", stat: "反應", value: -4 },] }],
+        outcomes: [{ effects: [{ type: "stat_delta", stat: "領導", value: 4 }, { type: "dynamic_delta", stat: "心態", value: 4 }] }],
       },
     ],
   },
@@ -1535,7 +1535,7 @@ export const EVENTS = [
             { type: "fame_delta", value: -18 },
             { type: "stat_delta", stat: "抗壓", value: -6 },
             { type: "dynamic_delta", stat: "心態", value: -12 },
-			      { type: "flag_set", flag: "洗澡狗" }
+			{ type: "flag_set", flag: "洗澡狗" }
           ]},
         ],
       },
@@ -1618,7 +1618,7 @@ export const EVENTS = [
     id: "event_fart_break",
     category: "彩蛋",
     weight: 1,
-    cooldown: 12,
+    cooldown: 999,
     conditions: [],
     title: "團練中斷",
     text: "團練練到一半，不知道是誰突然放了一個驚天動地的屁，全隊瞬間笑到練不下去。",
