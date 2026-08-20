@@ -639,10 +639,22 @@ function advance() {
         character.fame = clamp(character.fame + 10, 0, 100);
         character.stats["抗壓"] = clamp(character.stats["抗壓"] + 2, 1, 99); // 扛過國際賽等級的壓力，抗壓能力自然提升
         pushLog(`${character.meta.currentStageName} 結果：${result}，知名度提升。　[抗壓+2]`);
-        if (character.talents.some((t) => t.id === "semifinal_enough")) {
-          character.dynamic["心態"] = clamp(character.dynamic["心態"] - 10, 0, 100);
-          pushLog(`打完國際賽後有點鬆懈，狀態出現下滑。`);
+
+        // 觸發線B：全角色通用、機率性的賽後鬆懈——大賽後容易鬆懈是普遍人性，不限定天賦，
+        // 機率跟目前心態/壓力連動，狀態越差越容易鬆懈
+        const stress = character.dynamic["壓力"] ?? 50;
+        const mood = character.dynamic["心態"] ?? 50;
+        const slackChance = clamp(0.15 + (stress - 50) / 200 - (mood - 50) / 300, 0.05, 0.6);
+        if (runtimeRng() < slackChance) {
+          const drops = {};
+          STAT_KEYS.forEach((stat) => {
+            const drop = Math.round(2 + runtimeRng() * 3);
+            character.stats[stat] = clamp(character.stats[stat] - drop, 1, 99);
+            drops[stat] = drop;
+          });
+          pushLog(`大賽結束後整個人鬆懈了下來，狀態明顯下滑。　[${STAT_KEYS.map((s) => s + "-" + drops[s]).join("、")}]`);
         }
+
         // 事件觸發點集中在「季後賽/國際賽後」跟「長休賽期」，不再每個例行賽/短休賽期都觸發——
         // 次數變少，但保留在生涯重要節點上，賽事限定事件(例如世界賽期間女友約會)也還是吃得到
         if (result === "冠軍") character.flags["剛奪冠"] = true;
@@ -802,6 +814,19 @@ function runInteractivePlayoff(isInternational, onComplete) {
 
   playSeries(false, (wonSemifinal) => {
     if (!wonSemifinal) { onComplete(isInternational ? "止步八強" : "止步四強"); return; }
+
+    // 觸發線A：四強就算成功天賦，進四強的當下就觸發，扣分會實際影響接下來的決賽表現，
+    // 不是等整個國際賽打完才補一筆沒有實質影響的敘事效果
+    if (isInternational && character.talents.some((t) => t.id === "semifinal_enough")) {
+      const drops = {};
+      STAT_KEYS.forEach((stat) => {
+        const drop = Math.round(2 + runtimeRng() * 3); // 2~4隨機
+        character.stats[stat] = clamp(character.stats[stat] - drop, 1, 99);
+        drops[stat] = drop;
+      });
+      pushLog(`四強已經超乎預期，你不自覺放鬆了警惕——這份鬆懈會帶進決賽。　[${STAT_KEYS.map((s) => s + "-" + drops[s]).join("、")}]`);
+    }
+
     playSeries(true, (wonFinal) => {
       // 國際賽要分開累計是哪個賽事的冠亞軍，不能只看籠統加總的internationalTitles，
       // 不然大滿貫/三冠王這種要求「特定賽事」的成就沒辦法判斷

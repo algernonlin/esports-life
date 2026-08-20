@@ -1078,6 +1078,24 @@ export const EVENTS = [
     ],
   },
   {
+    id: "event_midnight_noodle_demand",
+    category: "感情",
+    weight: 3,
+    cooldown: 6,
+    conditions: [{ flag: "有女友" }],
+    title: "凌晨三點的牛肉麵",
+    text: "連跪好幾把排位，心情差到谷底，你半夜三點打給女友，任性地要她現在就過來幫你煮碗牛肉麵壓壓驚。",
+    choices: [
+      {
+        label: "打了就打了",
+        outcomes: [
+          { probability: 0.5, resultText: "她碎念歸碎念，還是提著食材摸黑趕來，你們就著宵夜聊開了，你也把這份底氣帶回了訓練場上。", effects: [{ type: "stat_delta", stat: "領導", value: 7 }, { type: "dynamic_delta", stat: "心態", value: 6 }] },
+          { probability: 0.5, resultText: "她直接已讀不回，你們大吵一架，整晚沒睡好，隔天研究版本的心思全被搞砸了。", effects: [{ type: "stat_delta", stat: "版本適應力", value: -4 }, { type: "dynamic_delta", stat: "心態", value: -8 } ] },
+        ],
+      },
+    ],
+  },
+  {
     id: "event_relationship_strain",
     category: "感情",
     weight: 3,
@@ -1719,7 +1737,7 @@ export const EVENTS = [
 // 一旦抽中就歸零重來。彩蛋/感情基礎權重很小(彩蛋只有2，總池124)，用「乘倍率」幾乎沒感覺，
 // 改用「加法」直接疊加權重值，才能在真實遊戲一年僅約7次抽選的頻率下，有效逼近保底
 const PITY_CATEGORIES = ["彩蛋", "感情"]; // 想加其他分類進保底機制，直接加進這個陣列就好
-const PITY_ADD_PER_MISS = 2; // 每次沒抽到，該分類權重直接加10（相對池子總權重~124是有感的漲幅）
+const PITY_ADD_PER_MISS = 3; // 每次沒抽到，該分類權重直接加10（相對池子總權重~124是有感的漲幅）
 const PITY_MAX_ADD = 120; // 上限，避免長期沒資格符合的分類權重無限膨脹
 
 export function pickEvent(character, rng, stageType) {

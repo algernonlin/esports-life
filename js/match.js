@@ -263,9 +263,8 @@ export function resolveMatchWithResult(character, fullContext, win, runtimeRng, 
   const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
   // MVP除了看能力值表現(perf)，也要看這場實際打出來的KDA數字夠不夠好看——
   // 兩者原本是獨立計算的，可能出現perf判定過關但KDA很難看(甚至死比殺+助攻還多)還被判MVP的矛盾
-  // MVP門檻重新校準：這輪對話陸續改了團隊比分模型/位置差異化/天賦加成，
-  // perf實際輸出範圍已經跟原本1.15倍的門檻公式對不上（perf幾乎到不了statAvg*1.15），
-  // 改用statAvg*1.02，實測在不同能力值下都能穩定落在約22~26%的合理MVP比例
+  // MVP門檻用相對統計校準：perf實際輸出範圍會隨團隊比分模型/位置差異化/天賦加成變動，
+  // 固定倍率門檻容易跟perf真實分布脫節，改用statAvg*1.02，實測在不同能力值下都能穩定落在約22~26%的合理MVP比例
   const mvpThreshold = statAvg * 1.02;
   const mvp = win && perf >= mvpThreshold && kda >= 1.5;
 
