@@ -20,7 +20,7 @@ import {
   evaluateContractRenewal, trainCoreStat, paySalary, evaluateStageHonors, evaluateYearEndHonors,
   computeContractSalary, buildInternationalOpponentPool, applyGameResult, rollFinalsMVP,
   previewContract, computePrizeMoney, snapshotYearRecord, buildDomesticPlayoffOpponentPool,
-  generateWorldsNewsFlash,
+  generateWorldsNewsFlash, generateLeagueFlowNews,
 } from "./season.js";
 import { checkMilestones } from "./achievements.js";
 import { rollInjuryChance, tickInjuries } from "./injuries.js";
@@ -386,6 +386,9 @@ function renderSummary() {
   el("summary-title").innerHTML = generateTitles(c).map((t) => `<span class="share-badge">${t}</span>`).join("");
   el("summary-subline").textContent = retirementReasonText(c);
   el("summary-positions").textContent = `生涯位置：${c.meta.positionsPlayed.join("、")}`;
+  el("summary-talents").innerHTML = c.talents.length
+    ? c.talents.map((t) => `<div class="talent-tag rarity-${t.rarity}"><b>${t.name}</b><span>${t.desc}</span></div>`).join("")
+    : "";
 
   el("stat-years").textContent = `${c.meta.careerYear - 2026} 年`;
   el("stat-appearances").textContent = `${cs.appearances} 場`;
@@ -688,7 +691,13 @@ function advance() {
     if (character.team.yearsWithTeam >= 1) {
       character.stats["溝通"] = clamp(character.stats["溝通"] + 1, 1, 99);
       pushLog(`在 ${character.team.name} 待了${character.team.yearsWithTeam}年，跟隊友的默契更好了。　[溝通+1]`);
+      delete character.flags["剛換隊"]; // 待滿一年就不算「剛換隊」了
     }
+    if (character.team.yearsWithTeam >= 4) character.flags["隊內資深"] = true; // 待滿4年算隊內資深，才有機會變成霸凌別人的前輩
+
+    // 聯盟生態流動：讓其他隊伍的實力隨時間浮動，避免長生涯後期對手強弱分佈完全靜止
+    const leagueNews = generateLeagueFlowNews(runtimeRng, character.team.name);
+    pushLog(leagueNews);
 
     snapshotYearRecord(character); // 存這年的逐年戰績快照，要在seasonRecord跨年重置前呼叫
     const yearHonors = evaluateYearEndHonors(character);
@@ -914,6 +923,7 @@ function applyTrade() {
     yearsWithTeam: 0,
     contractYears: contract.years,
   };
+  character.flags["剛換隊"] = true; // 用來判斷「跟隊長吵架強制換隊」這類新隊磨合摩擦事件
   character.team.contractSalary = contract.annualSalary;
   character.rosterStatus = contract.predictedRoster;
   character.meta.teamName = dest.name;
@@ -1067,6 +1077,7 @@ function showFreeAgencyPrompt(onDone) {
       ...character.team, name: t.name, baseStrength: t.baseStrength, positionStrength: t.positionStrength,
       reputation: t.reputation, chemistry: 50, favor: 50, yearsWithTeam: 0, contractYears: row.contract.years,
     };
+    character.flags["剛換隊"] = true; // 用來判斷「跟隊長吵架強制換隊」這類新隊磨合摩擦事件
     character.team.contractSalary = row.contract.annualSalary;
     character.rosterStatus = row.contract.predictedRoster;
     character.meta.teamName = t.name;

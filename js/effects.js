@@ -54,6 +54,17 @@ export function applyEffects(character, effects = [], log = []) {
         character.flags[eff.flag] = eff.value ?? true;
         break;
       }
+      case "status_effect": {
+        // 事件觸發的臨時狀態(低潮期等)：立刻扣顯示數值，同時記錄扣了多少、還剩幾場比賽會復原
+        const drops = {};
+        (eff.stats ?? []).forEach((stat) => {
+          const drop = Math.round(eff.min + Math.random() * (eff.max - eff.min));
+          character.stats[stat] = clamp(character.stats[stat] - drop, 1, 99);
+          drops[stat] = drop;
+        });
+        character.statusEffects.push({ name: eff.name, drops, gamesRemaining: eff.games });
+        break;
+      }
       case "flag_clear": {
         delete character.flags[eff.flag];
         break;
@@ -107,6 +118,9 @@ export function summarizeEffects(effects = [], character = null) {
         break;
       case "fame_delta":
         parts.push(`知名度${sign(eff.value)}`);
+        break;
+      case "status_effect":
+        parts.push(`進入${eff.name}(${eff.games}場)`);
         break;
       case "team_delta":
         parts.push(`${TEAM_STAT_LABELS[eff.stat] ?? eff.stat}${sign(eff.value)}`);

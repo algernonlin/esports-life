@@ -42,9 +42,14 @@ export function personalPerformance(character, matchContext = {}) {
     s["版本適應力"] * metaFit * 0.15 +
     s["抗壓"] * (isMajorEvent ? 0.15 : 0.08) * 0.1 * 10; // 大賽加權
 
-  // 心態、傷病 debuff
+  // 心態、傷病 debuff：傷病扣的是affectedStats指定的核心能力值(反應/意識/抗壓等)，
+  // 用「傷病扣了多少分」直接影響baseAbility，不是去比對根本對不上的專精值名稱(之前這裡是bug，一直算出0)
   const moodMod = 1 + (character.dynamic.心態 - 50) / 200;
-  const injuryPenalty = character.injuries.reduce((acc, inj) => acc + (inj.affectedStats?.[specialty] ? 0.03 * inj.severity : 0), 0);
+  const injuryStatLoss = character.injuries.reduce((acc, inj) => {
+    const relevantKeys = ["反應", "意識", "抗壓", "版本適應力"];
+    return acc + relevantKeys.reduce((sum, key) => sum + Math.abs(inj.affectedStats?.[key] ?? 0), 0);
+  }, 0);
+  const injuryPenalty = clamp(injuryStatLoss / 100, 0, 0.5); // 傷病扣分總量換算成比例懲罰，封頂50%
   baseAbility = baseAbility * moodMod * (1 - injuryPenalty);
 
   // 壓力懲罰：只在大賽發威，抗壓值可以部分抵銷

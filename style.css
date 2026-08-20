@@ -524,7 +524,8 @@ body {
   border-radius: 2px;
 }
 .share-subline { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
-#summary-positions { margin-bottom: 24px; }
+#summary-positions { margin-bottom: 8px; }
+.share-talents { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
 
 .share-stat-grid {
   display: grid;

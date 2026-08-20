@@ -4,7 +4,7 @@
 import { clamp } from "./rng.js";
 
 const INJURY_POOL = [
-  { id: "wrist_strain", name: "手腕肌腱炎", affectedStats: { "反應": -6, "機制": -4 }, baseDuration: 2 },
+  { id: "wrist_strain", name: "手腕肌腱炎", affectedStats: { "反應": -6, "意識": -4 }, baseDuration: 2 },
   { id: "neck_pain",     name: "頸椎壓迫",   affectedStats: { "反應": -4, "意識": -3 }, baseDuration: 2 },
   { id: "burnout",       name: "精神倦怠",   affectedStats: { "抗壓": -5 },              baseDuration: 3 },
 ];

@@ -258,6 +258,7 @@ export function createCharacter({ name, position, region, teamName }) {
     trainingPoints: 0,   // 可自由分配的訓練點數，賽段結束時發放
     injuries: [],
     chronicInjuries: [],
+    statusEffects: [], // 事件觸發的臨時狀態(低潮期等)：{ name, drops: {stat:value}, gamesRemaining }，可疊加
     rosterStatus: "rotation", // starter | rotation | bench
     matchStreak: 0, // 持續連勝(正)/連敗(負)計數，跨賽段累積，給「世一XX」天賦用
     decline: { totalReactionLoss: 0 }, // 衰退累積量，用來觸發「手感不再」事件

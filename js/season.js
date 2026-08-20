@@ -1,7 +1,7 @@
 // ============================================================
 // season.js — 賽制推進、國際賽資格、輪換狀態、年齡衰退
 // ============================================================
-import { SEASON_FLOW, META_VERSIONS, TEAMS, ALL_TEAMS, REGION_SALARY_MULTIPLIER } from "./state.js";
+import { SEASON_FLOW, META_VERSIONS, TEAMS, ALL_TEAMS, REGION_SALARY_MULTIPLIER, POSITIONS } from "./state.js";
 import { simulateMatch } from "./match.js";
 import { clamp, randomRange, pickWeighted } from "./rng.js";
 import { decayChampionProficiency, rollMetaChampions, trainChampion } from "./champions.js";
@@ -126,6 +126,18 @@ export function applyGameResult(character, result) {
   if (result.mvp) {
     character.careerCounters.mvps++;
   }
+
+  // 低潮期用「真的打了幾場比賽」倒數，不是賽段——一個賽段可能打好幾場、也可能完全沒打，
+  // 用場次倒數才能保證「持續10場比賽」這句話是真的算場次
+  character.statusEffects = character.statusEffects.filter((s) => {
+    s.gamesRemaining -= 1;
+    if (s.gamesRemaining > 0) return true;
+    // 時間到，把當初扣的數值精準復原
+    Object.entries(s.drops).forEach(([stat, drop]) => {
+      character.stats[stat] = clamp(character.stats[stat] + drop, 1, 99);
+    });
+    return false;
+  });
 }
 
 export function simulatePlayoff(character, runtimeRng, { isInternational = false } = {}) {
@@ -471,6 +483,43 @@ const INTERNATIONAL_PRIZE_MONEY = {
   "先鋒賽":         { champion: 100, runnerup: 60 },
 };
 const DOMESTIC_PRIZE_BASE = { champion: 30, runnerup: 12 };
+
+// 聯盟生態流動：讓其他隊伍的實力隨時間浮動，避免整個生涯15年裡對手強弱分佈完全靜止不變——
+// 只動「隊伍的強度數字」，不牽動任何真實球員身份/合約/位置，純粹是聯盟其他隊伍(NPC)的新聞
+export function generateLeagueFlowNews(runtimeRng, myTeamName) {
+  const rand = runtimeRng();
+  const applyDelta = (team, delta) => {
+    team.baseStrength = clamp(team.baseStrength + delta, 30, 99);
+    // 隨機挑一個位置，讓position strength也跟著同向微調，不是只有總戰力數字動
+    const pos = POSITIONS[Math.floor(runtimeRng() * POSITIONS.length)];
+    team.positionStrength[pos] = clamp(team.positionStrength[pos] + delta, 30, 99);
+  };
+
+  if (rand < 0.4) {
+    // 簽下新星：只會發生在別隊，自己的隊伍要靠自己打出來，不能無緣無故變強
+    const pool = ALL_TEAMS.filter((t) => t.name !== myTeamName);
+    const team = pool[Math.floor(runtimeRng() * pool.length)];
+    const delta = Math.round(3 + runtimeRng() * 5);
+    applyDelta(team, delta);
+    return `場外快訊｜${team.name}官方宣布簽下潛力新星，聯盟關注度上升。`;
+  } else if (rand < 0.75) {
+    // 老將退場/核心出走：所有隊伍都可能發生，自己的隊伍也不例外——這是唯一會讓自己隊伍變弱的來源
+    const team = ALL_TEAMS[Math.floor(runtimeRng() * ALL_TEAMS.length)];
+    const delta = -Math.round(3 + runtimeRng() * 5);
+    applyDelta(team, delta);
+    const isMe = team.name === myTeamName;
+    return `場外快訊｜${team.name}${isMe ? "（你的戰隊）" : ""}核心選手退役/離隊，陣容重建期恐怕不好熬。`;
+  } else {
+    // 明星轉會：此消彼長，不是憑空生成強度，自己的隊伍可以當來源或目標(合理，因為是真的簽下/放走人)
+    const source = ALL_TEAMS[Math.floor(runtimeRng() * ALL_TEAMS.length)];
+    const destPool = ALL_TEAMS.filter((t) => t.name !== source.name);
+    const dest = destPool[Math.floor(runtimeRng() * destPool.length)];
+    const delta = Math.round(3 + runtimeRng() * 4);
+    applyDelta(source, -delta);
+    applyDelta(dest, delta);
+    return `場外快訊｜${source.name}核心選手轉會加盟${dest.name}，聯盟版圖出現變動。`;
+  }
+}
 
 // 場外快訊：純敘事包裝，不代表真的模擬了其他49隊的完整賽程——
 // 加權隨機抽兩支隊伍(強隊機率高)打一場模擬決賽，純粹是給世界增添一點背景聲響
