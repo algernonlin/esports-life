@@ -16,7 +16,7 @@ import { rollMatchMoment } from "./matchFlavor.js";
 import {
   advanceStage, simulateRegularStage, checkQualification,
   rollMetaVersion, applyAgeDecay, evaluateRosterStatus,
-  evaluateInvitations, grantTrainingPoints, tickChampionDecay, pickTradeDestination,
+  evaluateInvitations, grantTrainingPoints, tickChampionDecay, pickTradeDestination, checkBurnoutPenalty,
   evaluateContractRenewal, trainCoreStat, paySalary, evaluateStageHonors, evaluateYearEndHonors,
   computeContractSalary, buildInternationalOpponentPool, applyGameResult, rollFinalsMVP,
   previewContract, computePrizeMoney, snapshotYearRecord, buildDomesticPlayoffOpponentPool,
@@ -382,9 +382,10 @@ function renderSummary() {
   const c = character;
   const cs = computeCareerStats(c);
   el("summary-name").textContent = c.meta.name;
-  el("summary-seed").textContent = currentSeed ? `SEED ${currentSeed}` : "";
-  el("summary-title").textContent = generateTitle(c);
+  el("summary-seed").innerHTML = currentSeed ? `選手種子<span class="seed-code">${currentSeed}</span>` : "";
+  el("summary-title").innerHTML = generateTitles(c).map((t) => `<span class="share-badge">${t}</span>`).join("");
   el("summary-subline").textContent = retirementReasonText(c);
+  el("summary-positions").textContent = `生涯位置：${c.meta.positionsPlayed.join("、")}`;
 
   el("stat-years").textContent = `${c.meta.careerYear - 2026} 年`;
   el("stat-appearances").textContent = `${cs.appearances} 場`;
@@ -427,30 +428,39 @@ function downloadShareCard() {
   });
 }
 
-function generateTitle(c) {
-  // 依嚴重程度/特殊性排序判斷，越前面優先權越高
-  if (c.flags["生涯終止_涉賭"]) return "涉賭";
-  if (c.flags["家暴爭議"]) return "家暴";
-  if (c.flags["已渡化嬰靈"]) return "嬰靈之王";
-  if (c.flags["已被抓到出軌"]) return "渣男";
-  if (c.flags["外遇中"]) return "花花公子";
-  if (c.flags["毒舌人設"]) return "嘴強王者";
-  if (c.flags["曾要求墮胎"]) return "胎男";
-  if (c.flags["偷偷聯繫粉絲"]) return "草粉";
-  if (c.flags["洗澡狗"]) return "洗澡狗";
-  if (c.flags["乳牛"]) return "乳牛";
-  if (c.careerCounters.worldsAppearances >= 2) return "世界賽常客";
-  if (c.careerCounters.kills >= 1000) return "生涯千殺傳奇";
-  if (c.fame >= 85) return "話題王者";
-  if (c.chronicInjuries.length >= 2) return "傷病纏身的老將";
-  if (c.team.chemistry <= 25) return "隊伍毒瘤";
-  if (c.careerCounters.wins >= 150) return "傳奇老兵";
-  if (c.careerCounters.wins >= 100) return "百勝老兵";
-  if (c.flags["轉型意識流"]) return "以智取勝";
-  if (c.flags["主動退役"]) return "急流勇退";
-  if (c.flags["戰績淘汰"]) return "賴著不退役";
-  if (c.meta.careerYear - 2026 <= 2 && c.retired) return "曇花一現";
-  return "職業選手";
+function generateTitles(c) {
+  const titles = [];
+
+  // 醜聞/爭議類：各自獨立，可以同時出現
+  if (c.flags["生涯終止_涉賭"]) titles.push("涉賭");
+  if (c.flags["家暴爭議"]) titles.push("家暴");
+  if (c.flags["已渡化嬰靈"]) titles.push("嬰靈之王");
+  if (c.flags["已被抓到出軌"]) titles.push("渣男");
+  else if (c.flags["外遇中"]) titles.push("花花公子"); // 已被抓到出軌是外遇中的加重結果，避免重複顯示
+  if (c.flags["毒舌人設"]) titles.push("嘴強王者");
+  if (c.flags["曾要求墮胎"]) titles.push("胎男");
+  if (c.flags["偷偷聯繫粉絲"]) titles.push("草粉");
+  if (c.flags["洗澡狗"]) titles.push("洗澡狗");
+  if (c.flags["乳牛"]) titles.push("乳牛");
+
+  // 生涯成就類
+  if (c.careerCounters.worldsAppearances >= 2) titles.push("世界賽常客");
+  if (c.careerCounters.kills >= 1000) titles.push("生涯千殺傳奇");
+  if (c.fame >= 85) titles.push("話題王者");
+  if (c.chronicInjuries.length >= 2) titles.push("傷病纏身的老將");
+  if (c.team.chemistry <= 25) titles.push("隊伍毒瘤");
+
+  // 勝場數只取最高一級，不會150勝又同時顯示100勝的稱號
+  if (c.careerCounters.wins >= 150) titles.push("傳奇老兵");
+  else if (c.careerCounters.wins >= 100) titles.push("百勝老兵");
+
+  if (c.flags["轉型意識流"]) titles.push("以智取勝");
+  if (c.flags["主動退役"]) titles.push("急流勇退");
+  if (c.flags["戰績淘汰"]) titles.push("賴著不退役");
+  if (c.meta.careerYear - 2026 <= 2 && c.retired) titles.push("曇花一現");
+
+  if (titles.length === 0) titles.push("職業選手");
+  return titles;
 }
 
 function retirementReasonText(c) {
@@ -562,6 +572,8 @@ function advance() {
   const stageType = SEASON_FLOW[character.meta.currentStageIndex].type;
 
   grantTrainingPoints(character, stageType);
+  const burnoutMsgs = checkBurnoutPenalty(character, runtimeRng);
+  burnoutMsgs.forEach((msg) => pushLog(msg + "。"));
   paySalary(character); // 每個賽段發放一次薪水，不管當下是不是比賽賽段
 
   // 壓力累積／消退：接近大賽自動累積（抗壓值可以緩衝累積量），休賽期自然消退
@@ -1056,6 +1068,9 @@ function applyPositionChange() {
   // 專精值(節奏/單線抗壓/運營/視野控制)現在是即時從6個核心能力值算出來的，
   // 換位置不用再手動搬移數值/打折——同樣的核心能力值，換一個位置套用的公式自然就不同
   character.meta.position = targetPos;
+  if (!character.meta.positionsPlayed.includes(targetPos)) {
+    character.meta.positionsPlayed.push(targetPos);
+  }
   pushLog(`轉位置：從「${oldPos}」轉為「${targetPos}」。`);
 }
 
@@ -1068,6 +1083,11 @@ function currentStageRecordKey() {
 
 function checkRetirement() {
   const statAvg = Object.values(character.stats).reduce((a, b) => a + b, 0) / Object.values(character.stats).length;
+  if (character.flags["生涯終止_涉賭"]) {
+    character.retired = true;
+    pushLog(`${character.meta.name} 因涉賭遭聯盟終身禁賽，職業生涯就此終結。`);
+    return true;
+  }
   if (character.meta.age >= 34) {
     character.retired = true;
     character.flags["自然衰退退役"] = true;
@@ -1217,6 +1237,14 @@ function finishEvent(event, choice, outcome, dice, onDone) {
   const statNote = statSummary ? `　[${statSummary}]` : "";
   pushLog(`【${event.title}】選擇了「${choice.label}」${diceNote}${resultNote}${statNote}`);
   closeEventCard();
+
+  // 涉賭東窗事發要立刻結束生涯，不能等到年終checkRetirement()才生效，
+  // 不然賽季中抓到卻能繼續正常打到年底，跟「終身禁賽」這個敘事矛盾
+  if (character.flags["生涯終止_涉賭"] && !character.retired) {
+    character.retired = true;
+    pushLog(`${character.meta.name} 因涉賭遭聯盟終身禁賽，職業生涯就此終結。`);
+  }
+
   renderDashboard();
   saveGame();
   onDone?.(); // 玩家真的選完了，這時候才能繼續推進賽段（沒有事件的話onDone在maybeTriggerEvent就已經呼叫過了）

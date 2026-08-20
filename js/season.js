@@ -125,7 +125,6 @@ export function applyGameResult(character, result) {
   character.careerCounters.appearances++;
   if (result.mvp) {
     character.careerCounters.mvps++;
-    character.trainingPoints += 1;
   }
 }
 
@@ -259,13 +258,20 @@ export function applyAgeDecay(character, runtimeRng) {
 
   if (runtimeRng() < prob) {
     character.flags["衰退期"] = true; // 一旦真的觸發過衰退，就標記進入衰退期，讓衰退期限定事件可以開始出現
-    const reactionDrop = Math.round(randomRange(runtimeRng, 1, 3));
+
+    // 衰退幅度改用比例(不是固定值)：能力值越高、衰退時掉得越多，符合「曾經多強、掉下來越有感」；
+    // 而且比例本身也隨年齡拉大，越老退得越兇，不是一路吃同樣的衰退率
+    const onsetAge = 25 + ((character.dynamic["體能"] + character.dynamic["心態"]) / 200) * 5;
+    const yearsPastOnset = Math.max(0, character.meta.age - onsetAge);
+    const decayPct = clamp(0.03 + yearsPastOnset * 0.025, 0.03, 0.25); // 3%起跳，隨年齡加重，封頂25%
+
+    const reactionDrop = Math.round(character.stats["反應"] * decayPct * (0.7 + runtimeRng() * 0.6));
     character.stats["反應"] = clamp(character.stats["反應"] - reactionDrop, 1, 99);
     character.dynamic["體能"] = clamp(character.dynamic["體能"] - Math.round(randomRange(runtimeRng, 2, 5)), 0, 100);
     character.decline.totalReactionLoss += reactionDrop;
 
-    // 版本適應力也會隨年齡衰退：老將對新版本的敏銳度不如年輕選手
-    const metaDrop = Math.round(randomRange(runtimeRng, 1, 3));
+    // 版本適應力也會隨年齡衰退：老將對新版本的敏銳度不如年輕選手，同樣改用比例
+    const metaDrop = Math.round(character.stats["版本適應力"] * decayPct * (0.7 + runtimeRng() * 0.6));
     character.stats["版本適應力"] = clamp(character.stats["版本適應力"] - metaDrop, 1, 99);
   }
 }
@@ -333,6 +339,31 @@ export function grantTrainingPoints(character, stageType) {
   let points = TRAINING_POINTS_BY_STAGE_TYPE[stageType] ?? 0;
   if (points > 0 && character.talents?.some((t) => t.id === "grinder")) points += 1; // 刻苦訓練生
   character.trainingPoints += points;
+}
+
+// 壓力爆表(=100)或體能歸零，長期處在這種極端狀態沒有任何懲罰不合理——
+// 偵測到就對相關能力值造成傷害，逼玩家不能放著壓力/體能不管
+export function checkBurnoutPenalty(character, runtimeRng) {
+  const messages = [];
+  if ((character.dynamic["壓力"] ?? 0) >= 100) {
+    const drops = {};
+    ["抗壓", "意識", "溝通"].forEach((stat) => {
+      const drop = Math.round(randomRange(runtimeRng, 1, 3));
+      character.stats[stat] = clamp(character.stats[stat] - drop, 1, 99);
+      drops[stat] = drop;
+    });
+    messages.push(`壓力長期爆表，抗壓-${drops["抗壓"]}、意識-${drops["意識"]}、溝通-${drops["溝通"]}`);
+  }
+  if ((character.dynamic["體能"] ?? 100) <= 0) {
+    const drops = {};
+    ["反應", "意識", "版本適應力"].forEach((stat) => {
+      const drop = Math.round(randomRange(runtimeRng, 1, 3));
+      character.stats[stat] = clamp(character.stats[stat] - drop, 1, 99);
+      drops[stat] = drop;
+    });
+    messages.push(`體能長期透支，反應-${drops["反應"]}、意識-${drops["意識"]}、版本適應力-${drops["版本適應力"]}`);
+  }
+  return messages;
 }
 
 export function tickChampionDecay(character, runtimeRng) {

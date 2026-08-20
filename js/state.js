@@ -235,6 +235,7 @@ export function createCharacter({ name, position, region, teamName }) {
     meta: {
       name,
       position,
+      positionsPlayed: [position], // 生涯打過的所有位置，轉位置時會追加，總評畫面顯示用
       region,
       teamName,
       age: 16,
